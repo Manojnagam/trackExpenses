@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Center Expense Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>🍎 Nutrition Center Manager</h1>
+                    <p class="subtitle">Track finances and inventory professionally</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
+                    <button class="btn-icon" id="settingsBtn" title="Settings">⚙️</button>
+                </div>
+            </div>
+            <nav class="main-nav">
+                <button class="nav-tab active" data-tab="finance">💰 Finance</button>
+                <button class="nav-tab" data-tab="inventory">📦 Inventory</button>
+            </nav>
+        </header>
+
+        <!-- Finance Section -->
+        <div id="financeSection" class="tab-content active">
+        <div class="stats-container">
+            <div class="stat-card income-card">
+                <div class="stat-label">Total Income</div>
+                <div class="stat-value income-value" id="totalIncome">₹0.00</div>
+            </div>
+            <div class="stat-card expense-card">
+                <div class="stat-label">Total Expenses</div>
+                <div class="stat-value expense-value" id="totalExpenses">₹0.00</div>
+            </div>
+            <div class="stat-card net-card">
+                <div class="stat-label">Net Balance</div>
+                <div class="stat-value net-value" id="netBalance">₹0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Records</div>
+                <div class="stat-value" id="totalRecords">0</div>
+            </div>
+        </div>
+
+        <div class="summary-container">
+            <div class="summary-section">
+                <h2>This Week's Summary</h2>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Amount In</div>
+                        <div class="summary-value income-text" id="weeklyIncome">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Total Amount Out</div>
+                        <div class="summary-value expense-text" id="weeklyExpenses">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Weekly Net Balance</div>
+                        <div class="summary-value net-text" id="weeklyNet">₹0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="summary-section">
+                <h2>This Month's Summary</h2>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Amount In</div>
+                        <div class="summary-value income-text" id="monthlyIncome">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Total Amount Out</div>
+                        <div class="summary-value expense-text" id="monthlyExpenses">₹0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Monthly Net Balance</div>
+                        <div class="summary-value net-text" id="monthlyNet">₹0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="form-section">
+                <h2>Add Transaction</h2>
+                <form id="expenseForm">
+                    <div class="form-group">
+                        <label for="type">Type</label>
+                        <select id="type" required>
+                            <option value="">Select type</option>
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="category">Category</label>
+                        <select id="category" required>
+                            <option value="">Select category</option>
+                            <option value="Product">Product</option>
+                            <option value="ums">ums</option>
+                            <option value="3day trail pack">3day trail pack</option>
+                            <option value="afresh pack">afresh pack</option>
+                            <option value="cheque">cheque</option>
+                            <option value="Supplements">Supplements</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Services">Services</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <input type="text" id="description" placeholder="Enter expense description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount (₹)</label>
+                        <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Notes (Optional)</label>
+                        <textarea id="notes" rows="3" placeholder="Additional notes..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Transaction</button>
+                    <button type="button" class="btn btn-secondary" id="cancelEdit" style="display: none;">Cancel Edit</button>
+                </form>
+            </div>
+
+            <div class="expenses-section">
+                <div class="section-header">
+                    <h2>Transaction History</h2>
+                    <div class="controls">
+                        <input type="date" id="dateFrom" class="date-filter" title="From Date">
+                        <input type="date" id="dateTo" class="date-filter" title="To Date">
+                        <input type="text" id="searchInput" placeholder="Search..." class="search-input">
+                        <select id="filterType" class="filter-select">
+                            <option value="">All Types</option>
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                        </select>
+                        <select id="filterCategory" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="Product">Product</option>
+                            <option value="ums">ums</option>
+                            <option value="3day trail pack">3day trail pack</option>
+                            <option value="afresh pack">afresh pack</option>
+                            <option value="cheque">cheque</option>
+                            <option value="Supplements">Supplements</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Services">Services</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <button class="btn btn-export" id="exportBtn" title="Export to Excel">📥 Export</button>
+                        <button class="btn btn-import" id="importBtn" title="Import from Excel/CSV">📤 Import</button>
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display: none;">
+                    </div>
+                </div>
+                <div id="expensesList" class="expenses-list">
+                    <div class="empty-state">No transactions recorded yet. Add your first transaction above!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="analytics-container">
+            <div class="chart-section">
+                <h2>Category Breakdown</h2>
+                <div class="chart-wrapper">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-section">
+                <h2>Income vs Expenses</h2>
+                <div class="chart-wrapper">
+                    <canvas id="incomeExpenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-section">
+                <h2>Weekly Income Summary (8 Weeks)</h2>
+                <div class="chart-wrapper">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+                <div class="chart-table-container">
+                    <table class="chart-table" id="weeklyTable">
+                        <thead>
+                            <tr>
+                                <th>WEEK</th>
+                                <th>INCOME (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weeklyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h2>Monthly Income Summary (6 Months)</h2>
+                <div class="chart-wrapper">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+                <div class="chart-table-container">
+                    <table class="chart-table" id="monthlyTable">
+                        <thead>
+                            <tr>
+                                <th>MONTH</th>
+                                <th>INCOME (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- End Finance Section -->
+
+        <!-- Inventory Section -->
+        <div id="inventorySection" class="tab-content">
+            <div class="inventory-header">
+                <h2>📦 Inventory Management</h2>
+                <div style="display: flex; gap: 10px; margin-left: auto;">
+                    <button class="btn btn-info" id="checkInventoryDataBtnHeader" style="background: #17a2b8; color: white; padding: 10px 20px;">🔍 Check My Data</button>
+                    <button class="btn btn-success" id="showMyDataBtn" style="background: #28a745; color: white; padding: 10px 20px;">📊 Show My Data</button>
+                </div>
+                <div class="inventory-alerts" id="inventoryAlerts"></div>
+            </div>
+
+            <div class="inventory-tabs">
+                <button class="inv-tab-btn active" data-inv-tab="currentStock">Current Stock</button>
+                <button class="inv-tab-btn" data-inv-tab="stockIn">Stock In</button>
+                <button class="inv-tab-btn" data-inv-tab="stockOut">Stock Out</button>
+                <button class="inv-tab-btn" data-inv-tab="dailyUsage">Daily Usage</button>
+                <button class="inv-tab-btn" data-inv-tab="orderList">Order List</button>
+            </div>
+
+            <!-- Current Stock Tab -->
+            <div id="currentStockTab" class="inv-tab-content active">
+                <div class="stock-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Products:</span>
+                        <span class="summary-value" id="totalProducts">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Low Stock Items:</span>
+                        <span class="summary-value warning" id="lowStockCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Out of Stock:</span>
+                        <span class="summary-value danger" id="outOfStockCount">0</span>
+                    </div>
+                </div>
+                <div class="stock-filters">
+                    <input type="text" id="stockSearch" placeholder="Search products..." class="search-input">
+                    <select id="stockCategoryFilter" class="filter-select">
+                        <option value="">All Categories</option>
+                        <option value="Shake Products">Shake Products</option>
+                        <option value="Children's Health">Children's Health</option>
+                        <option value="Supplements">Supplements</option>
+                        <option value="Accessories">Accessories</option>
+                    </select>
+                </div>
+                <div id="currentStockList" class="stock-list"></div>
+            </div>
+
+            <!-- Stock In Tab -->
+            <div id="stockInTab" class="inv-tab-content">
+                <div class="stock-form-section">
+                    <h3>Add Stock In</h3>
+                    <form id="stockInForm">
+                        <div class="form-group">
+                            <label for="stockInProduct">Product</label>
+                            <select id="stockInProduct" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockInQuantity">Quantity</label>
+                            <input type="number" id="stockInQuantity" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockInUnit">Unit</label>
+                            <select id="stockInUnit" required>
+                                <option value="grams">Grams</option>
+                                <option value="scoops">Scoops</option>
+                                <option value="packets">Packets</option>
+                                <option value="boxes" selected>Boxes</option>
+                                <option value="tablets">Tablets</option>
+                                <option value="servings">Servings</option>
+                                <option value="sets">Sets</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockInDate">Date</label>
+                            <input type="date" id="stockInDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockInNotes">Notes (Optional)</label>
+                            <textarea id="stockInNotes" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Stock In</button>
+                    </form>
+                </div>
+                <div class="stock-history">
+                    <h3>Stock In History</h3>
+                    <div id="stockInHistory" class="history-list"></div>
+                </div>
+            </div>
+
+            <!-- Stock Out Tab -->
+            <div id="stockOutTab" class="inv-tab-content">
+                <div class="stock-form-section">
+                    <h3>Mark Product as Completed</h3>
+                    <form id="stockOutForm">
+                        <div class="form-group">
+                            <label for="stockOutProduct">Product</label>
+                            <select id="stockOutProduct" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockOutQuantity">Quantity Completed</label>
+                            <input type="number" id="stockOutQuantity" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockOutUnit">Unit</label>
+                            <select id="stockOutUnit" required>
+                                <option value="grams">Grams</option>
+                                <option value="scoops">Scoops</option>
+                                <option value="packets">Packets</option>
+                                <option value="boxes" selected>Boxes</option>
+                                <option value="tablets">Tablets</option>
+                                <option value="servings">Servings</option>
+                                <option value="sets">Sets</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockOutDate">Date</label>
+                            <input type="date" id="stockOutDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockOutNotes">Notes (Optional)</label>
+                            <textarea id="stockOutNotes" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Mark as Completed</button>
+                    </form>
+                </div>
+                <div class="stock-history">
+                    <h3>Stock Out History</h3>
+                    <div id="stockOutHistory" class="history-list"></div>
+                </div>
+            </div>
+
+            <!-- Daily Usage Tab -->
+            <div id="dailyUsageTab" class="inv-tab-content">
+                <!-- Daily Summary Section -->
+                <div class="stock-form-section" style="margin-bottom: 30px;">
+                    <h3>Daily Summary (Quick Entry)</h3>
+                    <form id="dailySummaryForm">
+                        <div class="form-group">
+                            <label for="summaryDate">Date</label>
+                            <input type="date" id="summaryDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="weightGainShakes">Weight Gain Shakes (Count)</label>
+                            <input type="number" id="weightGainShakes" step="1" min="0" value="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="weightLossShakes">Weight Loss Shakes (Count)</label>
+                            <input type="number" id="weightLossShakes" step="1" min="0" value="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="totalCustomers">Total Customers Today</label>
+                            <input type="number" id="totalCustomers" step="1" min="0" value="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="summaryNotes">Notes (Optional)</label>
+                            <textarea id="summaryNotes" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Record Daily Summary</button>
+                    </form>
+                </div>
+                
+                <!-- Product Usage Section -->
+                <div class="stock-form-section" style="margin-bottom: 30px;">
+                    <h3>Product Usage (Track Individual Products)</h3>
+                    <form id="dailyUsageForm">
+                        <div class="form-group">
+                            <label for="usageProduct">Product</label>
+                            <select id="usageProduct" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="usageQuantity">Quantity Used Today</label>
+                            <input type="number" id="usageQuantity" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="usageUnit">Unit</label>
+                            <select id="usageUnit" required>
+                                <option value="scoops" selected>Scoops</option>
+                                <option value="grams">Grams</option>
+                                <option value="packets">Packets</option>
+                                <option value="tablets">Tablets</option>
+                                <option value="servings">Servings</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="usageDate">Date</label>
+                            <input type="date" id="usageDate" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Record Product Usage</button>
+                    </form>
+                </div>
+                
+                <div class="stock-history">
+                    <h3>Daily Usage History</h3>
+                    <div id="dailyUsageHistory" class="history-list"></div>
+                </div>
+            </div>
+
+            <!-- Order List Tab -->
+            <div id="orderListTab" class="inv-tab-content">
+                <div class="order-list-header">
+                    <h3>Products to Order</h3>
+                    <button class="btn btn-secondary" id="exportOrderList">📥 Export Order List</button>
+                </div>
+                <div id="orderList" class="order-list"></div>
+            </div>
+        </div>
+        <!-- End Inventory Section -->
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" id="closeSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Data Management</h3>
+                    <button class="btn btn-secondary" id="backupBtn">💾 Backup Data</button>
+                    <button class="btn btn-secondary" id="restoreBtn">📂 Restore Data</button>
+                    <input type="file" id="restoreFile" accept=".json" style="display: none;">
+                    <button class="btn btn-danger" id="clearDataBtn">🗑️ Clear All Data</button>
+                    <button class="btn btn-warning" id="recoverAllDataBtn" style="background: #ff9800; color: white; margin-top: 10px; width: 100%;">🔍 RECOVER ALL LOST DATA</button>
+                </div>
+                <div class="settings-section">
+                    <h3>Inventory Data Management</h3>
+                    <button class="btn btn-secondary" id="backupInventoryBtn">💾 Backup Inventory</button>
+                    <button class="btn btn-secondary" id="restoreInventoryBtn">📂 Restore Inventory</button>
+                    <input type="file" id="restoreInventoryFile" accept=".json" style="display: none;">
+                    <button class="btn btn-info" id="checkInventoryDataBtn" style="background: #17a2b8; color: white;">🔍 Check Inventory Data</button>
+                </div>
+                <div class="settings-section">
+                    <h3>Export Options</h3>
+                    <button class="btn btn-secondary" id="printBtn">🖨️ Print Report</button>
+                    <button class="btn btn-secondary" id="exportCSVBtn">📄 Export as CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="inventory.js"></script>
+</body>
+</html>
+
