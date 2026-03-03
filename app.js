@@ -25,6 +25,11 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function shareViaWhatsApp(text) {
+    const encoded = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+}
+
 function checkStorageUsage() {
     try {
         let total = 0;
@@ -55,7 +60,9 @@ class ExpenseTracker {
         this.categoryChart = null;
         this.incomeExpenseChart = null;
         this.displayLimit = 50;
+        this.recurringExpenses = this.loadRecurringExpenses();
         this.init();
+        this.processRecurringExpenses();
     }
 
     init() {
@@ -97,6 +104,23 @@ class ExpenseTracker {
         document.getElementById('settingsModal').addEventListener('click', (e) => {
             if (e.target.id === 'settingsModal') this.closeSettings();
         });
+
+        // P&L Report
+        document.getElementById('plReportBtn')?.addEventListener('click', () => this.openPLReport());
+        document.getElementById('closePLModal')?.addEventListener('click', () => this.closePLReport());
+        document.getElementById('plModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'plModal') this.closePLReport();
+        });
+        document.getElementById('plMonth')?.addEventListener('change', () => this.renderPLReport());
+        document.getElementById('exportPLBtn')?.addEventListener('click', () => this.exportPLReport());
+        document.getElementById('whatsappPLBtn')?.addEventListener('click', () => this.sharePLViaWhatsApp());
+
+        // WhatsApp daily summary share
+        document.getElementById('whatsappDailySummary')?.addEventListener('click', () => this.shareDailySummaryViaWhatsApp());
+
+        // Recurring expenses management
+        document.getElementById('addRecurringBtn')?.addEventListener('click', () => this.addRecurringExpense());
+        this.renderRecurringExpenses();
 
         // Event delegation for expense list actions
         document.getElementById('expensesList').addEventListener('click', (e) => {
@@ -865,6 +889,271 @@ class ExpenseTracker {
         });
     }
 
+    // ---- Recurring Expenses ----
+    loadRecurringExpenses() {
+        let stored = localStorage.getItem('nutritionRecurring');
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) { /* fall through */ }
+        }
+        // Pre-seed with Rent and Utilities
+        const defaults = [
+            { id: generateId(), description: 'Rent', amount: 0, category: 'Rent', dayOfMonth: 1 },
+            { id: generateId(), description: 'Utilities', amount: 0, category: 'Utilities', dayOfMonth: 1 }
+        ];
+        localStorage.setItem('nutritionRecurring', JSON.stringify(defaults));
+        return defaults;
+    }
+
+    saveRecurringExpenses() {
+        localStorage.setItem('nutritionRecurring', JSON.stringify(this.recurringExpenses));
+    }
+
+    processRecurringExpenses() {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        this.recurringExpenses.forEach(rec => {
+            if (!rec.amount || rec.amount <= 0) return;
+
+            const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(rec.dayOfMonth || 1).padStart(2, '0')}`;
+            const alreadyExists = this.expenses.some(e =>
+                e.description === rec.description &&
+                e.category === rec.category &&
+                e.date && e.date.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`)
+            );
+
+            if (!alreadyExists) {
+                this.expenses.unshift({
+                    id: generateId(),
+                    type: 'Expense',
+                    date: dateStr,
+                    category: rec.category,
+                    description: rec.description,
+                    amount: rec.amount,
+                    notes: 'Auto-added recurring expense'
+                });
+                this.saveExpenses();
+                this.renderExpenses();
+                this.updateCharts();
+
+                if (typeof inventoryManager !== 'undefined') {
+                    inventoryManager.showToast(`Recurring expense added: ${rec.description} - ₹${rec.amount}`, 'info');
+                }
+            }
+        });
+    }
+
+    addRecurringExpense() {
+        const desc = document.getElementById('newRecurringDesc')?.value.trim();
+        const amount = parseFloat(document.getElementById('newRecurringAmount')?.value);
+        const category = document.getElementById('newRecurringCategory')?.value || 'Other';
+
+        if (!desc) return;
+
+        this.recurringExpenses.push({
+            id: generateId(),
+            description: desc,
+            amount: amount || 0,
+            category: category,
+            dayOfMonth: 1
+        });
+
+        this.saveRecurringExpenses();
+        this.renderRecurringExpenses();
+
+        document.getElementById('newRecurringDesc').value = '';
+        document.getElementById('newRecurringAmount').value = '';
+    }
+
+    deleteRecurringExpense(id) {
+        this.recurringExpenses = this.recurringExpenses.filter(r => r.id !== id);
+        this.saveRecurringExpenses();
+        this.renderRecurringExpenses();
+    }
+
+    renderRecurringExpenses() {
+        const container = document.getElementById('recurringExpensesList');
+        if (!container) return;
+
+        if (this.recurringExpenses.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">No recurring expenses configured.</p>';
+            return;
+        }
+
+        container.innerHTML = this.recurringExpenses.map(rec => `
+            <div class="recurring-item">
+                <div class="recurring-item-info">
+                    <div class="recurring-item-desc">${escapeHtml(rec.description)}</div>
+                    <div class="recurring-item-amount">${rec.category} - ₹${(rec.amount || 0).toFixed(2)} on day ${rec.dayOfMonth || 1}</div>
+                </div>
+                <button class="btn btn-delete" style="padding:4px 10px;font-size:0.8rem;" onclick="tracker.deleteRecurringExpense('${rec.id}')">✕</button>
+            </div>
+        `).join('');
+    }
+
+    // ---- P&L Report ----
+    openPLReport() {
+        this.populatePLMonths();
+        this.renderPLReport();
+        document.getElementById('plModal')?.classList.add('show');
+    }
+
+    closePLReport() {
+        document.getElementById('plModal')?.classList.remove('show');
+    }
+
+    populatePLMonths() {
+        const select = document.getElementById('plMonth');
+        if (!select) return;
+
+        select.innerHTML = '';
+        const now = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            select.innerHTML += `<option value="${val}"${i === 0 ? ' selected' : ''}>${label}</option>`;
+        }
+    }
+
+    renderPLReport() {
+        const select = document.getElementById('plMonth');
+        const container = document.getElementById('plReportContent');
+        if (!select || !container) return;
+
+        const [year, month] = select.value.split('-').map(Number);
+
+        const monthExpenses = this.expenses.filter(e => {
+            const d = new Date(e.date);
+            return d.getFullYear() === year && d.getMonth() === month - 1;
+        });
+
+        // Revenue by category
+        const revenueByCategory = {};
+        let totalRevenue = 0;
+        monthExpenses.filter(e => (e.type || 'Expense') === 'Income').forEach(e => {
+            revenueByCategory[e.category] = (revenueByCategory[e.category] || 0) + e.amount;
+            totalRevenue += e.amount;
+        });
+
+        // Expenses by category
+        const expenseByCategory = {};
+        let totalExpenses = 0;
+        monthExpenses.filter(e => (e.type || 'Expense') === 'Expense').forEach(e => {
+            expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + e.amount;
+            totalExpenses += e.amount;
+        });
+
+        // Gross profit from inventory (cost of goods)
+        let totalCost = 0;
+        let totalSaleRevenue = 0;
+        if (typeof inventoryManager !== 'undefined') {
+            inventoryManager.stockInHistory.forEach(entry => {
+                const d = new Date(entry.date);
+                if (d.getFullYear() === year && d.getMonth() === month - 1 && entry.costPrice) {
+                    totalCost += entry.costPrice;
+                }
+            });
+            inventoryManager.stockOutHistory.forEach(entry => {
+                const d = new Date(entry.date);
+                if (d.getFullYear() === year && d.getMonth() === month - 1 && entry.salePrice) {
+                    totalSaleRevenue += entry.salePrice;
+                }
+            });
+        }
+
+        const grossProfit = totalRevenue - totalCost;
+        const netProfit = totalRevenue - totalExpenses;
+
+        let html = '<div class="pl-section"><h4>Revenue</h4>';
+        html += '<table class="pl-table"><thead><tr><th>Category</th><th style="text-align:right">Amount (₹)</th></tr></thead><tbody>';
+        Object.keys(revenueByCategory).forEach(cat => {
+            html += `<tr><td>${escapeHtml(cat)}</td><td style="text-align:right;color:var(--secondary-color)">₹${revenueByCategory[cat].toFixed(2)}</td></tr>`;
+        });
+        html += `</tbody><tfoot><tr><td><strong>Total Revenue</strong></td><td style="text-align:right;color:var(--secondary-color)"><strong>₹${totalRevenue.toFixed(2)}</strong></td></tr></tfoot></table></div>`;
+
+        html += '<div class="pl-section"><h4>Expenses</h4>';
+        html += '<table class="pl-table"><thead><tr><th>Category</th><th style="text-align:right">Amount (₹)</th></tr></thead><tbody>';
+        Object.keys(expenseByCategory).forEach(cat => {
+            html += `<tr><td>${escapeHtml(cat)}</td><td style="text-align:right;color:var(--danger-color)">₹${expenseByCategory[cat].toFixed(2)}</td></tr>`;
+        });
+        html += `</tbody><tfoot><tr><td><strong>Total Expenses</strong></td><td style="text-align:right;color:var(--danger-color)"><strong>₹${totalExpenses.toFixed(2)}</strong></td></tr></tfoot></table></div>`;
+
+        if (totalCost > 0 || totalSaleRevenue > 0) {
+            html += `<div class="pl-section"><h4>Inventory</h4>
+                <p>Cost of Goods: ₹${totalCost.toFixed(2)}</p>
+                <p>Sale Revenue: ₹${totalSaleRevenue.toFixed(2)}</p>
+                <p><strong>Gross Profit: ₹${grossProfit.toFixed(2)}</strong></p>
+            </div>`;
+        }
+
+        const plColor = netProfit >= 0 ? 'var(--secondary-color)' : 'var(--danger-color)';
+        html += `<div class="pl-total-row">
+            <span>Net Profit</span>
+            <span style="color:${plColor}">₹${netProfit.toFixed(2)}</span>
+        </div>`;
+
+        container.innerHTML = html;
+        this._lastPLData = { year, month, totalRevenue, totalExpenses, netProfit, revenueByCategory, expenseByCategory };
+    }
+
+    exportPLReport() {
+        if (!this._lastPLData || typeof XLSX === 'undefined') return;
+
+        const d = this._lastPLData;
+        const rows = [['P&L Report', `${d.year}-${String(d.month).padStart(2, '0')}`], [], ['REVENUE'], ['Category', 'Amount']];
+        Object.keys(d.revenueByCategory).forEach(cat => rows.push([cat, d.revenueByCategory[cat]]));
+        rows.push(['Total Revenue', d.totalRevenue], [], ['EXPENSES'], ['Category', 'Amount']);
+        Object.keys(d.expenseByCategory).forEach(cat => rows.push([cat, d.expenseByCategory[cat]]));
+        rows.push(['Total Expenses', d.totalExpenses], [], ['NET PROFIT', d.netProfit]);
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 25 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'P&L Report');
+        XLSX.writeFile(wb, `PL-Report-${d.year}-${String(d.month).padStart(2, '0')}.xlsx`);
+    }
+
+    sharePLViaWhatsApp() {
+        if (!this._lastPLData) return;
+        const d = this._lastPLData;
+        const monthName = new Date(d.year, d.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        let text = `📊 P&L Report - ${monthName}\n\n`;
+        text += `💰 Total Revenue: ₹${d.totalRevenue.toFixed(2)}\n`;
+        text += `💸 Total Expenses: ₹${d.totalExpenses.toFixed(2)}\n`;
+        text += `${d.netProfit >= 0 ? '✅' : '❌'} Net Profit: ₹${d.netProfit.toFixed(2)}\n`;
+        shareViaWhatsApp(text);
+    }
+
+    // ---- WhatsApp Daily Summary Share ----
+    shareDailySummaryViaWhatsApp() {
+        const today = new Date().toISOString().split('T')[0];
+        let todaySummary = null;
+
+        if (typeof inventoryManager !== 'undefined' && inventoryManager.dailyUsage) {
+            todaySummary = inventoryManager.dailyUsage.find(e => e.date === today && e.type === 'summary');
+        }
+
+        const todaysIncome = this.expenses
+            .filter(e => e.date === today && (e.type || 'Expense') === 'Income')
+            .reduce((sum, e) => sum + e.amount, 0);
+
+        const formattedDate = new Date(today).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        let text = `📊 Daily Summary - ${formattedDate}\n\n`;
+        if (todaySummary) {
+            text += `🥤 Weight Gain Shakes: ${todaySummary.weightGainShakes || 0}\n`;
+            text += `🥤 Weight Loss Shakes: ${todaySummary.weightLossShakes || 0}\n`;
+            text += `👥 Total Customers: ${todaySummary.totalCustomers || 0}\n`;
+        }
+        text += `💰 Today's Income: ₹${todaysIncome.toFixed(2)}\n`;
+
+        shareViaWhatsApp(text);
+    }
+
     toggleDarkMode() {
         document.body.classList.toggle('dark-mode');
         const isDark = document.body.classList.contains('dark-mode');
@@ -1134,14 +1423,19 @@ class ExpenseTracker {
 
 // Initialize the tracker when page loads
 let tracker;
+let customerManager;
+let dashboardManager;
+
 document.addEventListener('DOMContentLoaded', () => {
     tracker = new ExpenseTracker();
-    
+
     // Add data recovery button
     document.getElementById('recoverAllDataBtn')?.addEventListener('click', () => {
         recoverAllData();
     });
 });
+
+// These are initialized after inventory.js and customers.js load (see bottom of dashboard.js)
 
 // Comprehensive Data Recovery Function
 function recoverAllData() {

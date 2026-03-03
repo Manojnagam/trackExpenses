@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nutrition Center Expense Tracker</title>
+    <title>Nutrition Center Manager</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -14,7 +14,7 @@
             <div class="header-content">
                 <div>
                     <h1>🍎 Nutrition Center Manager</h1>
-                    <p class="subtitle">Track finances and inventory professionally</p>
+                    <p class="subtitle">Track finances, inventory, and customers professionally</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn-icon" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
@@ -22,13 +22,80 @@
                 </div>
             </div>
             <nav class="main-nav">
-                <button class="nav-tab active" data-tab="finance">💰 Finance</button>
+                <button class="nav-tab active" data-tab="dashboard">🏠 Dashboard</button>
+                <button class="nav-tab" data-tab="finance">💰 Finance</button>
                 <button class="nav-tab" data-tab="inventory">📦 Inventory</button>
+                <button class="nav-tab" data-tab="customers">👥 Customers</button>
+                <button class="nav-tab" data-tab="emi">💳 EMI</button>
             </nav>
         </header>
 
+        <!-- Dashboard Section -->
+        <div id="dashboardSection" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="dash-card dash-income">
+                    <div class="dash-card-icon">💰</div>
+                    <div class="dash-card-label">Today's Income</div>
+                    <div class="dash-card-value" id="dashTodayIncome">₹0.00</div>
+                </div>
+                <div class="dash-card dash-customers">
+                    <div class="dash-card-icon">👥</div>
+                    <div class="dash-card-label">Today's Customers</div>
+                    <div class="dash-card-value" id="dashTodayCustomers">0</div>
+                </div>
+                <div class="dash-card dash-shakes">
+                    <div class="dash-card-icon">🥤</div>
+                    <div class="dash-card-label">Today's Shakes</div>
+                    <div class="dash-card-value" id="dashTodayShakes">0</div>
+                </div>
+                <div class="dash-card dash-lowstock">
+                    <div class="dash-card-icon">📦</div>
+                    <div class="dash-card-label">Low Stock Alerts</div>
+                    <div class="dash-card-value" id="dashLowStock">0</div>
+                </div>
+                <div class="dash-card dash-emi">
+                    <div class="dash-card-icon">💳</div>
+                    <div class="dash-card-label">Pending EMI</div>
+                    <div class="dash-card-value" id="dashPendingEMI">0</div>
+                </div>
+                <div class="dash-card dash-pl">
+                    <div class="dash-card-icon">📊</div>
+                    <div class="dash-card-label">This Month's P&L</div>
+                    <div class="dash-card-value" id="dashMonthPL">₹0.00</div>
+                </div>
+                <div class="dash-card dash-expiry">
+                    <div class="dash-card-icon">⏰</div>
+                    <div class="dash-card-label">Expiring Products</div>
+                    <div class="dash-card-value" id="dashExpiringProducts">0</div>
+                </div>
+                <div class="dash-card dash-active">
+                    <div class="dash-card-icon">🏃</div>
+                    <div class="dash-card-label">Active Customers</div>
+                    <div class="dash-card-value" id="dashActiveCustomers">0</div>
+                </div>
+            </div>
+            <div class="dashboard-actions">
+                <h3>Quick Actions</h3>
+                <div class="quick-actions">
+                    <button class="btn-quick" id="quickAddTransaction">💰 Add Transaction</button>
+                    <button class="btn-quick" id="quickDailySummary">📝 Record Daily Summary</button>
+                    <button class="btn-quick" id="quickAddCustomer">👤 Add Customer</button>
+                    <button class="btn-quick btn-quick-insights" id="insightsToggleBtn">🤖 AI Insights</button>
+                </div>
+            </div>
+            <div id="insightsPanel" class="insights-panel" style="display: none;">
+                <div class="insights-header">
+                    <h3>🤖 AI Business Insights</h3>
+                    <span class="insights-timestamp" id="insightsTimestamp"></span>
+                    <button class="btn btn-secondary insights-refresh-btn" id="insightsRefreshBtn">Refresh</button>
+                </div>
+                <div id="insightsContent" class="insights-content"></div>
+            </div>
+        </div>
+        <!-- End Dashboard Section -->
+
         <!-- Finance Section -->
-        <div id="financeSection" class="tab-content active">
+        <div id="financeSection" class="tab-content">
         <div class="stats-container">
             <div class="stat-card income-card">
                 <div class="stat-label">Total Income</div>
@@ -68,7 +135,10 @@
             </div>
 
             <div class="summary-section">
-                <h2>This Month's Summary</h2>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h2 style="margin-bottom:0;">This Month's Summary</h2>
+                    <button class="btn btn-export" id="plReportBtn" style="width:auto;">📊 P&L Report</button>
+                </div>
                 <div class="summary-cards">
                     <div class="summary-card">
                         <div class="summary-label">Total Amount In</div>
@@ -249,6 +319,8 @@
                 <button class="inv-tab-btn" data-inv-tab="stockOut">Stock Out</button>
                 <button class="inv-tab-btn" data-inv-tab="dailyUsage">Daily Usage</button>
                 <button class="inv-tab-btn" data-inv-tab="orderList">Order List</button>
+                <button class="inv-tab-btn" data-inv-tab="expiryAlerts">Expiry Alerts</button>
+                <button class="inv-tab-btn" data-inv-tab="profitReport">Profit Report</button>
             </div>
 
             <!-- Current Stock Tab -->
@@ -306,6 +378,14 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="stockInCostPrice">Purchase Cost (₹) (Optional)</label>
+                            <input type="number" id="stockInCostPrice" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="stockInExpiryDate">Expiry Date (Optional)</label>
+                            <input type="date" id="stockInExpiryDate">
+                        </div>
+                        <div class="form-group">
                             <label for="stockInDate">Date</label>
                             <input type="date" id="stockInDate" required>
                         </div>
@@ -348,6 +428,10 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="stockOutSalePrice">Sale Price (₹) (Optional)</label>
+                            <input type="number" id="stockOutSalePrice" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
                             <label for="stockOutDate">Date</label>
                             <input type="date" id="stockOutDate" required>
                         </div>
@@ -368,7 +452,10 @@
             <div id="dailyUsageTab" class="inv-tab-content">
                 <!-- Daily Summary Section -->
                 <div class="stock-form-section" style="margin-bottom: 30px;">
-                    <h3>Daily Summary (Quick Entry)</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin-bottom:0;">Daily Summary (Quick Entry)</h3>
+                        <button class="btn btn-export" id="whatsappDailySummary" style="width:auto;">📱 Share via WhatsApp</button>
+                    </div>
                     <form id="dailySummaryForm">
                         <div class="form-group">
                             <label for="summaryDate">Date</label>
@@ -393,7 +480,7 @@
                         <button type="submit" class="btn btn-primary">Record Daily Summary</button>
                     </form>
                 </div>
-                
+
                 <!-- Product Usage Section -->
                 <div class="stock-form-section" style="margin-bottom: 30px;">
                     <h3>Product Usage (Track Individual Products)</h3>
@@ -423,7 +510,7 @@
                         <button type="submit" class="btn btn-primary">Record Product Usage</button>
                     </form>
                 </div>
-                
+
                 <div class="stock-history">
                     <h3>Daily Usage History</h3>
                     <div id="dailyUsageHistory" class="history-list"></div>
@@ -438,8 +525,158 @@
                 </div>
                 <div id="orderList" class="order-list"></div>
             </div>
+
+            <!-- Expiry Alerts Tab -->
+            <div id="expiryAlertsTab" class="inv-tab-content">
+                <div class="stock-form-section">
+                    <h3>Product Expiry Alerts</h3>
+                    <div id="expiryAlertsList"></div>
+                </div>
+            </div>
+
+            <!-- Profit Report Tab -->
+            <div id="profitReportTab" class="inv-tab-content">
+                <div class="stock-form-section">
+                    <h3>Profit Report</h3>
+                    <div id="profitReportContent"></div>
+                </div>
+            </div>
         </div>
         <!-- End Inventory Section -->
+
+        <!-- Customers Section -->
+        <div id="customersSection" class="tab-content">
+            <div class="inventory-header">
+                <h2>👥 Customer Management</h2>
+            </div>
+
+            <div class="inventory-tabs">
+                <button class="cust-tab-btn active" data-cust-tab="customerList">Customer List</button>
+                <button class="cust-tab-btn" data-cust-tab="attendance">Attendance</button>
+            </div>
+
+            <!-- Customer List Sub-tab -->
+            <div id="customerListCustTab" class="cust-tab-content active">
+                <div class="stock-form-section" style="margin-bottom: 30px;">
+                    <h3>Add Customer</h3>
+                    <form id="customerForm">
+                        <div class="form-group">
+                            <label for="customerName">Name</label>
+                            <input type="text" id="customerName" placeholder="Customer name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="customerPhone">Phone</label>
+                            <input type="tel" id="customerPhone" placeholder="Phone number">
+                        </div>
+                        <div class="form-group">
+                            <label for="customerPlan">Plan</label>
+                            <select id="customerPlan" required>
+                                <option value="weight-gain">Weight Gain</option>
+                                <option value="weight-loss">Weight Loss</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="customerJoinDate">Join Date</label>
+                            <input type="date" id="customerJoinDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="customerNotes">Notes (Optional)</label>
+                            <textarea id="customerNotes" rows="2" placeholder="Any notes about this customer..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Customer</button>
+                        <button type="button" class="btn btn-secondary" id="cancelCustomerEdit" style="display: none;">Cancel Edit</button>
+                    </form>
+                </div>
+
+                <div class="stock-form-section">
+                    <div class="stock-filters" style="margin-bottom:20px;">
+                        <input type="text" id="customerSearch" placeholder="Search by name or phone..." class="search-input">
+                        <select id="customerPlanFilter" class="filter-select">
+                            <option value="">All Plans</option>
+                            <option value="weight-gain">Weight Gain</option>
+                            <option value="weight-loss">Weight Loss</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    <div id="customerList" class="customer-list"></div>
+                </div>
+            </div>
+
+            <!-- Attendance Sub-tab -->
+            <div id="attendanceCustTab" class="cust-tab-content">
+                <div class="stock-form-section">
+                    <div class="attendance-nav">
+                        <button class="btn btn-secondary" id="attendancePrevMonth" style="width:auto;margin:0;padding:8px 16px;">&larr; Prev</button>
+                        <h3 id="attendanceMonthLabel" style="margin:0;"></h3>
+                        <button class="btn btn-secondary" id="attendanceNextMonth" style="width:auto;margin:0;padding:8px 16px;">Next &rarr;</button>
+                    </div>
+                    <div id="attendanceGrid"></div>
+                </div>
+            </div>
+        </div>
+        <!-- End Customers Section -->
+
+        <!-- EMI Section -->
+        <div id="emiSection" class="tab-content">
+            <div class="inventory-header">
+                <h2>💳 EMI / Installment Tracking</h2>
+            </div>
+
+            <div class="stock-form-section" style="margin-bottom: 30px;">
+                <h3>Create EMI Plan</h3>
+                <form id="emiForm">
+                    <div class="form-group">
+                        <label for="emiCustomer">Customer</label>
+                        <select id="emiCustomer" required>
+                            <option value="">Select Customer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="emiDescription">Description</label>
+                        <input type="text" id="emiDescription" placeholder="e.g. 3-month program package">
+                    </div>
+                    <div class="form-group">
+                        <label for="emiTotalAmount">Total Amount (₹)</label>
+                        <input type="number" id="emiTotalAmount" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="emiType">Payment Type</label>
+                        <select id="emiType" required>
+                            <option value="fixed">Fixed Installments</option>
+                            <option value="flexible">Flexible Partial Payments</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="emiInstallmentCountGroup">
+                        <label for="emiInstallmentCount">Number of Installments</label>
+                        <input type="number" id="emiInstallmentCount" step="1" min="1" value="3">
+                    </div>
+                    <div class="form-group">
+                        <label for="emiStartDate">Start Date</label>
+                        <input type="date" id="emiStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="emiNotes">Notes (Optional)</label>
+                        <textarea id="emiNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create EMI Plan</button>
+                    <button type="button" class="btn btn-secondary" id="cancelEMIEdit" style="display: none;">Cancel Edit</button>
+                </form>
+            </div>
+
+            <div class="stock-form-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h3 style="margin-bottom:0;">EMI Plans</h3>
+                    <select id="emiStatusFilter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div id="emiList"></div>
+            </div>
+        </div>
+        <!-- End EMI Section -->
     </div>
 
     <!-- Settings Modal -->
@@ -466,6 +703,26 @@
                     <button class="btn btn-info" id="checkInventoryDataBtn" style="background: #17a2b8; color: white;">🔍 Check Inventory Data</button>
                 </div>
                 <div class="settings-section">
+                    <h3>Recurring Expenses</h3>
+                    <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:10px;">Auto-added on the 1st of each month:</p>
+                    <div id="recurringExpensesList"></div>
+                    <div style="margin-top:15px;">
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <input type="text" id="newRecurringDesc" placeholder="Description (e.g. Rent)" style="width:100%;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <input type="number" id="newRecurringAmount" placeholder="Amount" step="0.01" min="0" style="flex:1;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                            <select id="newRecurringCategory" style="flex:1;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                                <option value="Rent">Rent</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" id="addRecurringBtn" style="margin-top:10px;">+ Add Recurring Expense</button>
+                    </div>
+                </div>
+                <div class="settings-section">
                     <h3>Export Options</h3>
                     <button class="btn btn-secondary" id="printBtn">🖨️ Print Report</button>
                     <button class="btn btn-secondary" id="exportCSVBtn">📄 Export as CSV</button>
@@ -474,8 +731,28 @@
         </div>
     </div>
 
+    <!-- P&L Report Modal -->
+    <div id="plModal" class="modal">
+        <div class="modal-content" style="max-width:700px;">
+            <div class="modal-header">
+                <h2>📊 Monthly P&L Report</h2>
+                <button class="modal-close" id="closePLModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;">
+                    <select id="plMonth" class="filter-select" style="min-width:200px;"></select>
+                    <button class="btn btn-export" id="exportPLBtn" style="width:auto;">📥 Export P&L</button>
+                    <button class="btn btn-export" id="whatsappPLBtn" style="width:auto;">📱 WhatsApp</button>
+                </div>
+                <div id="plReportContent"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script src="inventory.js"></script>
+    <script src="customers.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="insights.js"></script>
 </body>
 </html>
-

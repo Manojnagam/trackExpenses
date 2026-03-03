@@ -420,9 +420,13 @@ class InventoryManager {
     switchInventoryTab(tabName) {
         document.querySelectorAll('.inv-tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.inv-tab-content').forEach(content => content.classList.remove('active'));
-        
-        document.querySelector(`[data-inv-tab="${tabName}"]`).classList.add('active');
-        document.getElementById(`${tabName}Tab`).classList.add('active');
+
+        document.querySelector(`[data-inv-tab="${tabName}"]`)?.classList.add('active');
+        document.getElementById(`${tabName}Tab`)?.classList.add('active');
+
+        // Render content for new tabs
+        if (tabName === 'expiryAlerts') this.renderExpiryAlerts();
+        if (tabName === 'profitReport') this.renderProfitReport();
 
         // Ensure the tab content is visible even if the page can't scroll automatically
         const section = document.getElementById('inventorySection');
@@ -1168,6 +1172,8 @@ class InventoryManager {
         const unit = document.getElementById('stockInUnit').value;
         const date = document.getElementById('stockInDate').value;
         const notes = document.getElementById('stockInNotes').value;
+        const costPrice = parseFloat(document.getElementById('stockInCostPrice')?.value) || 0;
+        const expiryDate = document.getElementById('stockInExpiryDate')?.value || '';
 
         const isEditing = !!this.editingStockInId;
 
@@ -1176,13 +1182,13 @@ class InventoryManager {
             const index = this.stockInHistory.findIndex(entry => entry.id === this.editingStockInId);
             if (index !== -1) {
                 const oldEntry = this.stockInHistory[index];
-                
+
                 // Adjust stock: remove old quantity, add new quantity
                 if (!this.stockData[oldEntry.productId]) {
                     this.stockData[oldEntry.productId] = { quantity: 0, unit: oldEntry.unit };
                 }
                 this.stockData[oldEntry.productId].quantity -= oldEntry.quantity;
-                
+
                 // Update entry
                 this.stockInHistory[index] = {
                     ...oldEntry,
@@ -1190,9 +1196,11 @@ class InventoryManager {
                     quantity,
                     unit,
                     date,
-                    notes
+                    notes,
+                    costPrice,
+                    expiryDate
                 };
-                
+
                 // Add new quantity
                 if (!this.stockData[productId]) {
                     this.stockData[productId] = { quantity: 0, unit: unit };
@@ -1207,7 +1215,7 @@ class InventoryManager {
             if (!this.stockData[productId]) {
                 this.stockData[productId] = { quantity: 0, unit: unit };
             }
-            
+
             this.stockData[productId].quantity += quantity;
             this.stockData[productId].unit = unit;
 
@@ -1219,6 +1227,8 @@ class InventoryManager {
                 unit,
                 date,
                 notes,
+                costPrice,
+                expiryDate,
                 timestamp: new Date().toISOString()
             });
         }
@@ -1263,6 +1273,7 @@ class InventoryManager {
         const unit = document.getElementById('stockOutUnit').value;
         const date = document.getElementById('stockOutDate').value;
         const notes = document.getElementById('stockOutNotes').value;
+        const salePrice = parseFloat(document.getElementById('stockOutSalePrice')?.value) || 0;
 
         const isEditing = !!this.editingStockOutId;
 
@@ -1294,7 +1305,8 @@ class InventoryManager {
                     quantity,
                     unit,
                     date,
-                    notes
+                    notes,
+                    salePrice
                 };
                 
                 // Remove new quantity
@@ -1347,6 +1359,7 @@ class InventoryManager {
                 unit,
                 date,
                 notes,
+                salePrice,
                 timestamp: new Date().toISOString()
             });
         }
@@ -1567,6 +1580,12 @@ class InventoryManager {
         document.getElementById('stockInUnit').value = entry.unit;
         document.getElementById('stockInDate').value = entry.date;
         document.getElementById('stockInNotes').value = entry.notes || '';
+        if (document.getElementById('stockInCostPrice')) {
+            document.getElementById('stockInCostPrice').value = entry.costPrice || '';
+        }
+        if (document.getElementById('stockInExpiryDate')) {
+            document.getElementById('stockInExpiryDate').value = entry.expiryDate || '';
+        }
         
         // Update search input
         const product = this.getProductById(entry.productId);
@@ -1627,7 +1646,9 @@ class InventoryManager {
         document.getElementById('stockOutUnit').value = entry.unit;
         document.getElementById('stockOutDate').value = entry.date;
         document.getElementById('stockOutNotes').value = entry.notes || '';
-        
+        const salePriceEl = document.getElementById('stockOutSalePrice');
+        if (salePriceEl) salePriceEl.value = entry.salePrice || '';
+
         // Update search input
         const product = this.getProductById(entry.productId);
         const wrapper = select.closest('.searchable-select-wrapper');
@@ -1787,6 +1808,8 @@ class InventoryManager {
                     </div>
                     <div class="history-item-details" style="flex-direction: column; gap: 5px;">
                         <span><strong>Quantity:</strong> ${entry.quantity} ${entry.unit}</span>
+                        ${entry.costPrice ? `<span><strong>Cost Price:</strong> ₹${parseFloat(entry.costPrice).toFixed(2)}</span>` : ''}
+                        ${entry.expiryDate ? `<span><strong>Expiry:</strong> ${new Date(entry.expiryDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>` : ''}
                         ${entry.notes ? `<span><strong>Notes:</strong> ${escapeHtml(entry.notes)}</span>` : ''}
                     </div>
                 </div>
@@ -1836,6 +1859,7 @@ class InventoryManager {
                     </div>
                     <div class="history-item-details" style="flex-direction: column; gap: 5px;">
                         <span><strong>Completed:</strong> ${entry.quantity} ${entry.unit}</span>
+                        ${entry.salePrice ? `<span><strong>Sale Price:</strong> ₹${parseFloat(entry.salePrice).toFixed(2)}</span>` : ''}
                         ${entry.notes ? `<span><strong>Notes:</strong> ${escapeHtml(entry.notes)}</span>` : ''}
                     </div>
                 </div>
@@ -1992,12 +2016,27 @@ class InventoryManager {
             });
         });
 
+        // Add expiry alerts for items expiring within 7 days
+        const sevenDays = new Date();
+        sevenDays.setDate(sevenDays.getDate() + 7);
+        this.stockInHistory.forEach(entry => {
+            if (entry.expiryDate) {
+                const expiry = new Date(entry.expiryDate);
+                if (expiry <= sevenDays) {
+                    const product = this.getProductById(entry.productId);
+                    const name = product ? product.name : entry.productId;
+                    const isExpired = expiry <= new Date();
+                    alerts.push(`${isExpired ? '🔴' : '🟡'} ${name} ${isExpired ? 'EXPIRED' : 'expiring soon'} (${entry.expiryDate})`);
+                }
+            }
+        });
+
         if (alerts.length === 0) {
             alertsContainer.innerHTML = '';
             return;
         }
 
-        alertsContainer.innerHTML = alerts.slice(0, 5).map(alert => 
+        alertsContainer.innerHTML = alerts.slice(0, 8).map(alert =>
             `<div class="alert-item">${escapeHtml(alert)}</div>`
         ).join('');
     }
@@ -2049,6 +2088,156 @@ class InventoryManager {
 
         XLSX.utils.book_append_sheet(wb, ws, 'Order List');
         XLSX.writeFile(wb, `order-list-${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    // ---- Expiry Alerts ----
+    renderExpiryAlerts() {
+        const container = document.getElementById('expiryAlertsList');
+        if (!container) return;
+
+        const now = new Date();
+        const sevenDays = new Date(now);
+        sevenDays.setDate(sevenDays.getDate() + 7);
+        const thirtyDays = new Date(now);
+        thirtyDays.setDate(thirtyDays.getDate() + 30);
+
+        const expiryItems = [];
+        this.stockInHistory.forEach(entry => {
+            if (!entry.expiryDate) return;
+            const expiry = new Date(entry.expiryDate);
+            const product = this.getProductById(entry.productId);
+            const productName = product ? product.name : entry.productId;
+
+            let status = '';
+            let statusClass = '';
+            if (expiry <= now) {
+                status = 'Expired';
+                statusClass = 'expired';
+            } else if (expiry <= sevenDays) {
+                status = 'Expiring in 7 days';
+                statusClass = 'expiring-soon';
+            } else if (expiry <= thirtyDays) {
+                status = 'Expiring in 30 days';
+                statusClass = 'expiring-month';
+            } else {
+                return; // Not expiring soon
+            }
+
+            expiryItems.push({
+                productName,
+                expiryDate: entry.expiryDate,
+                status,
+                statusClass,
+                quantity: entry.quantity,
+                unit: entry.unit,
+                sortDate: expiry
+            });
+        });
+
+        expiryItems.sort((a, b) => a.sortDate - b.sortDate);
+
+        if (expiryItems.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:30px;">No products expiring within 30 days.</div>';
+            return;
+        }
+
+        container.innerHTML = expiryItems.map(item => `
+            <div class="expiry-item ${item.statusClass}">
+                <div>
+                    <strong>${escapeHtml(item.productName)}</strong>
+                    <div style="font-size:0.85rem;color:var(--text-secondary);">${item.quantity} ${item.unit} - Expires: ${new Date(item.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+                <span class="expiry-badge ${item.statusClass}">${item.status}</span>
+            </div>
+        `).join('');
+    }
+
+    // ---- Profit Report ----
+    renderProfitReport() {
+        const container = document.getElementById('profitReportContent');
+        if (!container) return;
+
+        const productData = {};
+
+        // Aggregate cost from stock-in
+        this.stockInHistory.forEach(entry => {
+            if (!productData[entry.productId]) {
+                const product = this.getProductById(entry.productId);
+                productData[entry.productId] = {
+                    name: product ? product.name : entry.productId,
+                    unitsBought: 0,
+                    totalCost: 0,
+                    unitsSold: 0,
+                    totalRevenue: 0
+                };
+            }
+            productData[entry.productId].unitsBought += entry.quantity;
+            productData[entry.productId].totalCost += (entry.costPrice || 0);
+        });
+
+        // Aggregate revenue from stock-out
+        this.stockOutHistory.forEach(entry => {
+            if (!productData[entry.productId]) {
+                const product = this.getProductById(entry.productId);
+                productData[entry.productId] = {
+                    name: product ? product.name : entry.productId,
+                    unitsBought: 0,
+                    totalCost: 0,
+                    unitsSold: 0,
+                    totalRevenue: 0
+                };
+            }
+            productData[entry.productId].unitsSold += entry.quantity;
+            productData[entry.productId].totalRevenue += (entry.salePrice || 0);
+        });
+
+        const products = Object.values(productData).filter(p => p.totalCost > 0 || p.totalRevenue > 0);
+        let totalInvestment = 0;
+        let totalRevenue = 0;
+
+        products.forEach(p => {
+            totalInvestment += p.totalCost;
+            totalRevenue += p.totalRevenue;
+        });
+
+        const grossProfit = totalRevenue - totalInvestment;
+
+        let html = `
+            <div class="profit-summary-cards">
+                <div class="profit-summary-card">
+                    <div class="profit-summary-label">Total Investment</div>
+                    <div class="profit-summary-value" style="color:var(--danger-color)">₹${totalInvestment.toFixed(2)}</div>
+                </div>
+                <div class="profit-summary-card">
+                    <div class="profit-summary-label">Total Revenue</div>
+                    <div class="profit-summary-value" style="color:var(--secondary-color)">₹${totalRevenue.toFixed(2)}</div>
+                </div>
+                <div class="profit-summary-card">
+                    <div class="profit-summary-label">Gross Profit</div>
+                    <div class="profit-summary-value" style="color:${grossProfit >= 0 ? 'var(--secondary-color)' : 'var(--danger-color)'}">₹${grossProfit.toFixed(2)}</div>
+                </div>
+            </div>
+        `;
+
+        if (products.length === 0) {
+            html += '<div class="empty-state" style="padding:30px;">No cost/sale data yet. Add cost price when stocking in and sale price when stocking out.</div>';
+        } else {
+            html += '<table class="profit-table"><thead><tr><th>Product</th><th>Bought</th><th>Cost (₹)</th><th>Sold</th><th>Revenue (₹)</th><th>Profit (₹)</th></tr></thead><tbody>';
+            products.forEach(p => {
+                const profit = p.totalRevenue - p.totalCost;
+                html += `<tr>
+                    <td>${escapeHtml(p.name)}</td>
+                    <td>${p.unitsBought.toFixed(1)}</td>
+                    <td>₹${p.totalCost.toFixed(2)}</td>
+                    <td>${p.unitsSold.toFixed(1)}</td>
+                    <td>₹${p.totalRevenue.toFixed(2)}</td>
+                    <td style="color:${profit >= 0 ? 'var(--secondary-color)' : 'var(--danger-color)'}">₹${profit.toFixed(2)}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+        }
+
+        container.innerHTML = html;
     }
 
     showToast(message, type = 'success') {

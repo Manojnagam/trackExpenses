@@ -1,0 +1,765 @@
+// ============================================================
+// Customer Database & Attendance Tracking
+// ============================================================
+class CustomerManager {
+    constructor() {
+        this.customers = this.loadCustomers();
+        this.attendance = this.loadAttendance();
+        this.emiPlans = this.loadEMI();
+        this.editingCustomerId = null;
+        this.editingEMIId = null;
+        this.init();
+    }
+
+    init() {
+        // Customer form
+        document.getElementById('customerForm')?.addEventListener('submit', (e) => this.handleCustomerSubmit(e));
+        document.getElementById('cancelCustomerEdit')?.addEventListener('click', () => this.cancelCustomerEdit());
+
+        // Customer search & filter
+        document.getElementById('customerSearch')?.addEventListener('input', () => this.renderCustomers());
+        document.getElementById('customerPlanFilter')?.addEventListener('change', () => this.renderCustomers());
+
+        // Customer sub-tabs
+        document.querySelectorAll('.cust-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.custTab;
+                this.switchCustomerTab(tabName);
+            });
+        });
+
+        // Attendance navigation
+        document.getElementById('attendancePrevMonth')?.addEventListener('click', () => this.changeAttendanceMonth(-1));
+        document.getElementById('attendanceNextMonth')?.addEventListener('click', () => this.changeAttendanceMonth(1));
+
+        // EMI form
+        document.getElementById('emiForm')?.addEventListener('submit', (e) => this.handleEMISubmit(e));
+        document.getElementById('cancelEMIEdit')?.addEventListener('click', () => this.cancelEMIEdit());
+        document.getElementById('emiType')?.addEventListener('change', () => this.toggleInstallmentCount());
+
+        // EMI filter
+        document.getElementById('emiStatusFilter')?.addEventListener('change', () => this.renderEMIList());
+
+        // Event delegation for customer list
+        document.getElementById('customerList')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const { action, id } = btn.dataset;
+            if (action === 'editCustomer') this.editCustomer(id);
+            else if (action === 'deleteCustomer') this.deleteCustomer(id);
+            else if (action === 'whatsappCustomer') this.sendCustomerMessage(id);
+        });
+
+        // Event delegation for attendance grid
+        document.getElementById('attendanceGrid')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (btn && btn.dataset.action === 'whatsappAttendance') {
+                this.sendAttendanceReminder(btn.dataset.id);
+                return;
+            }
+            const cell = e.target.closest('[data-customer-id][data-date]');
+            if (cell) {
+                this.toggleAttendance(cell.dataset.customerId, cell.dataset.date);
+            }
+        });
+
+        // Event delegation for EMI list
+        document.getElementById('emiList')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const { action, id } = btn.dataset;
+            if (action === 'recordPayment') this.showPaymentForm(id);
+            else if (action === 'submitPayment') this.recordPayment(id);
+            else if (action === 'cancelPayment') this.hidePaymentForm(id);
+            else if (action === 'deleteEMI') this.deleteEMI(id);
+            else if (action === 'whatsappEMIReminder') this.sendEMIReminder(id);
+        });
+
+        // Populate customer dropdown in EMI form
+        this.populateEMICustomerDropdown();
+
+        // Attendance month tracking
+        this.attendanceMonth = new Date().getMonth();
+        this.attendanceYear = new Date().getFullYear();
+
+        // Initial render
+        this.renderCustomers();
+        this.renderAttendance();
+        this.renderEMIList();
+    }
+
+    // ---- Customer Sub-tabs ----
+    switchCustomerTab(tabName) {
+        document.querySelectorAll('.cust-tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.cust-tab-content').forEach(content => content.classList.remove('active'));
+
+        document.querySelector(`[data-cust-tab="${tabName}"]`)?.classList.add('active');
+        document.getElementById(`${tabName}CustTab`)?.classList.add('active');
+
+        if (tabName === 'attendance') {
+            this.renderAttendance();
+        }
+    }
+
+    // ---- Load / Save Customers ----
+    loadCustomers() {
+        let stored = localStorage.getItem('nutritionCustomers');
+        if (!stored || stored === '[]' || stored === 'null') {
+            stored = localStorage.getItem('nutritionCustomers_secondary');
+        }
+        if (!stored || stored === '[]' || stored === 'null') {
+            const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('nutritionCustomers_backup_')).sort().reverse();
+            if (backupKeys.length > 0) {
+                stored = localStorage.getItem(backupKeys[0]);
+                if (stored) localStorage.setItem('nutritionCustomers', stored);
+            }
+        }
+        if (stored && stored !== '[]' && stored !== 'null') {
+            try {
+                const data = JSON.parse(stored);
+                return Array.isArray(data) ? data : [];
+            } catch (e) { return []; }
+        }
+        return [];
+    }
+
+    saveCustomers() {
+        try {
+            localStorage.setItem('nutritionCustomers', JSON.stringify(this.customers));
+            const backupKey = 'nutritionCustomers_backup_' + new Date().toISOString().split('T')[0];
+            localStorage.setItem(backupKey, JSON.stringify(this.customers));
+            cleanupOldBackups('nutritionCustomers_backup_', 3);
+            localStorage.setItem('nutritionCustomers_secondary', JSON.stringify(this.customers));
+        } catch (e) {
+            console.error('Failed to save customers:', e);
+        }
+    }
+
+    // ---- Load / Save Attendance ----
+    loadAttendance() {
+        let stored = localStorage.getItem('nutritionAttendance');
+        if (!stored || stored === '[]' || stored === 'null') {
+            stored = localStorage.getItem('nutritionAttendance_secondary');
+        }
+        if (stored && stored !== '[]' && stored !== 'null') {
+            try {
+                const data = JSON.parse(stored);
+                return Array.isArray(data) ? data : [];
+            } catch (e) { return []; }
+        }
+        return [];
+    }
+
+    saveAttendance() {
+        try {
+            localStorage.setItem('nutritionAttendance', JSON.stringify(this.attendance));
+            localStorage.setItem('nutritionAttendance_secondary', JSON.stringify(this.attendance));
+        } catch (e) {
+            console.error('Failed to save attendance:', e);
+        }
+    }
+
+    // ---- Load / Save EMI ----
+    loadEMI() {
+        let stored = localStorage.getItem('nutritionEMI');
+        if (!stored || stored === '[]' || stored === 'null') {
+            stored = localStorage.getItem('nutritionEMI_secondary');
+        }
+        if (!stored || stored === '[]' || stored === 'null') {
+            const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('nutritionEMI_backup_')).sort().reverse();
+            if (backupKeys.length > 0) {
+                stored = localStorage.getItem(backupKeys[0]);
+                if (stored) localStorage.setItem('nutritionEMI', stored);
+            }
+        }
+        if (stored && stored !== '[]' && stored !== 'null') {
+            try {
+                const data = JSON.parse(stored);
+                return Array.isArray(data) ? data : [];
+            } catch (e) { return []; }
+        }
+        return [];
+    }
+
+    saveEMI() {
+        try {
+            localStorage.setItem('nutritionEMI', JSON.stringify(this.emiPlans));
+            const backupKey = 'nutritionEMI_backup_' + new Date().toISOString().split('T')[0];
+            localStorage.setItem(backupKey, JSON.stringify(this.emiPlans));
+            cleanupOldBackups('nutritionEMI_backup_', 3);
+            localStorage.setItem('nutritionEMI_secondary', JSON.stringify(this.emiPlans));
+        } catch (e) {
+            console.error('Failed to save EMI data:', e);
+        }
+    }
+
+    // ---- Customer CRUD ----
+    handleCustomerSubmit(e) {
+        e.preventDefault();
+        const name = document.getElementById('customerName').value.trim();
+        const phone = document.getElementById('customerPhone').value.trim();
+        const plan = document.getElementById('customerPlan').value;
+        const joinDate = document.getElementById('customerJoinDate').value;
+        const notes = document.getElementById('customerNotes').value.trim();
+
+        if (!name) return;
+
+        if (this.editingCustomerId) {
+            const index = this.customers.findIndex(c => c.id === this.editingCustomerId);
+            if (index !== -1) {
+                this.customers[index] = { ...this.customers[index], name, phone, plan, joinDate, notes };
+            }
+            this.cancelCustomerEdit();
+        } else {
+            this.customers.unshift({
+                id: generateId(),
+                name,
+                phone,
+                plan,
+                joinDate,
+                notes,
+                active: true
+            });
+        }
+
+        this.saveCustomers();
+        this.renderCustomers();
+        this.populateEMICustomerDropdown();
+        document.getElementById('customerForm').reset();
+        document.getElementById('customerJoinDate').value = new Date().toISOString().split('T')[0];
+
+        if (typeof inventoryManager !== 'undefined') {
+            inventoryManager.showToast(this.editingCustomerId ? 'Customer updated!' : 'Customer added!', 'success');
+        }
+    }
+
+    editCustomer(id) {
+        const customer = this.customers.find(c => c.id === id);
+        if (!customer) return;
+
+        this.editingCustomerId = id;
+        document.getElementById('customerName').value = customer.name;
+        document.getElementById('customerPhone').value = customer.phone || '';
+        document.getElementById('customerPlan').value = customer.plan;
+        document.getElementById('customerJoinDate').value = customer.joinDate || '';
+        document.getElementById('customerNotes').value = customer.notes || '';
+
+        document.getElementById('cancelCustomerEdit').style.display = 'block';
+        document.querySelector('#customerForm button[type="submit"]').textContent = 'Update Customer';
+        document.getElementById('customerForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    cancelCustomerEdit() {
+        this.editingCustomerId = null;
+        document.getElementById('customerForm').reset();
+        document.getElementById('customerJoinDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('cancelCustomerEdit').style.display = 'none';
+        document.querySelector('#customerForm button[type="submit"]').textContent = 'Add Customer';
+    }
+
+    deleteCustomer(id) {
+        if (confirm('Are you sure you want to delete this customer?')) {
+            this.customers = this.customers.filter(c => c.id !== id);
+            this.saveCustomers();
+            this.renderCustomers();
+            this.populateEMICustomerDropdown();
+            if (this.editingCustomerId === id) this.cancelCustomerEdit();
+        }
+    }
+
+    // ---- Render Customers ----
+    renderCustomers() {
+        const list = document.getElementById('customerList');
+        if (!list) return;
+
+        const search = (document.getElementById('customerSearch')?.value || '').toLowerCase();
+        const planFilter = document.getElementById('customerPlanFilter')?.value || '';
+
+        let filtered = this.customers.filter(c => {
+            const matchesSearch = !search || c.name.toLowerCase().includes(search) || (c.phone && c.phone.includes(search));
+            const matchesPlan = !planFilter || c.plan === planFilter;
+            return matchesSearch && matchesPlan;
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="empty-state">No customers found. Add your first customer above!</div>';
+            return;
+        }
+
+        list.innerHTML = filtered.map(c => {
+            const daysSinceJoined = c.joinDate ? Math.floor((Date.now() - new Date(c.joinDate).getTime()) / 86400000) : '—';
+            const streak = this.getStreak(c.id);
+            const planLabels = { 'weight-gain': 'Weight Gain', 'weight-loss': 'Weight Loss', 'general': 'General' };
+            const planColors = { 'weight-gain': '#50c878', 'weight-loss': '#e74c3c', 'general': '#4a90e2' };
+
+            return `
+                <div class="customer-card">
+                    <div class="customer-card-header">
+                        <div>
+                            <div class="customer-name">${escapeHtml(c.name)}</div>
+                            <div class="customer-phone">${c.phone ? escapeHtml(c.phone) : 'No phone'}</div>
+                        </div>
+                        <span class="plan-badge" style="background: ${planColors[c.plan] || '#4a90e2'}">${planLabels[c.plan] || c.plan}</span>
+                    </div>
+                    <div class="customer-details">
+                        <span>Joined: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
+                        <span>${daysSinceJoined !== '—' ? daysSinceJoined + ' days' : ''}</span>
+                        <span>Streak: ${streak} days</span>
+                    </div>
+                    ${c.notes ? `<div class="customer-notes">${escapeHtml(c.notes)}</div>` : ''}
+                    <div class="customer-actions">
+                        <button class="btn btn-whatsapp" data-action="whatsappCustomer" data-id="${c.id}">📱 WhatsApp</button>
+                        <button class="btn btn-edit" data-action="editCustomer" data-id="${c.id}">Edit</button>
+                        <button class="btn btn-delete" data-action="deleteCustomer" data-id="${c.id}">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ---- Attendance ----
+    toggleAttendance(customerId, date) {
+        const existing = this.attendance.findIndex(a => a.customerId === customerId && a.date === date);
+        if (existing !== -1) {
+            this.attendance.splice(existing, 1);
+        } else {
+            this.attendance.push({ id: generateId(), customerId, date });
+        }
+        this.saveAttendance();
+        this.renderAttendance();
+    }
+
+    changeAttendanceMonth(delta) {
+        this.attendanceMonth += delta;
+        if (this.attendanceMonth > 11) { this.attendanceMonth = 0; this.attendanceYear++; }
+        if (this.attendanceMonth < 0) { this.attendanceMonth = 11; this.attendanceYear--; }
+        this.renderAttendance();
+    }
+
+    renderAttendance() {
+        const grid = document.getElementById('attendanceGrid');
+        const monthLabel = document.getElementById('attendanceMonthLabel');
+        if (!grid || !monthLabel) return;
+
+        const year = this.attendanceYear;
+        const month = this.attendanceMonth;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        monthLabel.textContent = monthName;
+
+        const activeCustomers = this.customers.filter(c => c.active !== false);
+
+        if (activeCustomers.length === 0) {
+            grid.innerHTML = '<div class="empty-state">No active customers. Add customers first!</div>';
+            return;
+        }
+
+        let html = '<div class="attendance-table-wrapper"><table class="attendance-table"><thead><tr><th>Customer</th>';
+        for (let d = 1; d <= daysInMonth; d++) {
+            html += `<th>${d}</th>`;
+        }
+        html += '<th>Total</th></tr></thead><tbody>';
+
+        activeCustomers.forEach(c => {
+            html += `<tr><td class="attendance-customer-name">${escapeHtml(c.name)}</td>`;
+            let monthTotal = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const isPresent = this.attendance.some(a => a.customerId === c.id && a.date === dateStr);
+                if (isPresent) monthTotal++;
+                html += `<td class="attendance-cell ${isPresent ? 'present' : ''}" data-customer-id="${c.id}" data-date="${dateStr}">${isPresent ? '&#10003;' : ''}</td>`;
+            }
+            html += `<td class="attendance-total">${monthTotal}</td></tr>`;
+        });
+
+        html += '</tbody></table></div>';
+
+        // Inactive customers section with remind buttons
+        const inactiveList = this.getInactiveCustomers();
+        if (inactiveList.length > 0) {
+            html += `<div class="inactive-alert">
+                <strong>Inactive (no attendance in 7 days):</strong>
+                <div class="inactive-customers-list">
+                    ${inactiveList.map(c => {
+                        const lastDate = this.attendance
+                            .filter(a => a.customerId === c.id)
+                            .map(a => a.date)
+                            .sort()
+                            .reverse()[0];
+                        const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 'many';
+                        return `<div class="inactive-customer-item">
+                            <span>${escapeHtml(c.name)} — ${daysAgo} days ago</span>
+                            <button class="btn btn-whatsapp btn-whatsapp-sm" data-action="whatsappAttendance" data-id="${c.id}">📱 Remind</button>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }
+
+        grid.innerHTML = html;
+    }
+
+    getStreak(customerId) {
+        const dates = this.attendance
+            .filter(a => a.customerId === customerId)
+            .map(a => a.date)
+            .sort()
+            .reverse();
+
+        if (dates.length === 0) return 0;
+
+        let streak = 0;
+        let checkDate = new Date();
+        checkDate.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 365; i++) {
+            const dateStr = checkDate.toISOString().split('T')[0];
+            if (dates.includes(dateStr)) {
+                streak++;
+            } else if (i > 0) {
+                break;
+            }
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+        return streak;
+    }
+
+    getInactiveCustomers() {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+        return this.customers.filter(c => {
+            if (c.active === false) return false;
+            const recentAttendance = this.attendance.some(a => a.customerId === c.id && a.date >= sevenDaysAgoStr);
+            return !recentAttendance;
+        });
+    }
+
+    getTodayAttendanceCount() {
+        const today = new Date().toISOString().split('T')[0];
+        return this.attendance.filter(a => a.date === today).length;
+    }
+
+    // ---- EMI / Installment Tracking ----
+    populateEMICustomerDropdown() {
+        const select = document.getElementById('emiCustomer');
+        if (!select) return;
+        select.innerHTML = '<option value="">Select Customer</option>';
+        this.customers.forEach(c => {
+            select.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
+        });
+    }
+
+    toggleInstallmentCount() {
+        const type = document.getElementById('emiType')?.value;
+        const countGroup = document.getElementById('emiInstallmentCountGroup');
+        if (countGroup) {
+            countGroup.style.display = type === 'fixed' ? 'block' : 'none';
+        }
+    }
+
+    handleEMISubmit(e) {
+        e.preventDefault();
+        const customerId = document.getElementById('emiCustomer').value;
+        const description = document.getElementById('emiDescription').value.trim();
+        const totalAmount = parseFloat(document.getElementById('emiTotalAmount').value);
+        const type = document.getElementById('emiType').value;
+        const installmentCount = type === 'fixed' ? parseInt(document.getElementById('emiInstallmentCount').value) : 0;
+        const startDate = document.getElementById('emiStartDate').value;
+        const notes = document.getElementById('emiNotes').value.trim();
+
+        if (!customerId || !totalAmount) return;
+
+        const customer = this.customers.find(c => c.id === customerId);
+        const customerName = customer ? customer.name : 'Unknown';
+
+        if (this.editingEMIId) {
+            const index = this.emiPlans.findIndex(e => e.id === this.editingEMIId);
+            if (index !== -1) {
+                this.emiPlans[index] = {
+                    ...this.emiPlans[index],
+                    customerId, customerName, description, totalAmount, type, installmentCount, startDate, notes
+                };
+            }
+            this.cancelEMIEdit();
+        } else {
+            this.emiPlans.unshift({
+                id: generateId(),
+                customerId,
+                customerName,
+                description,
+                totalAmount,
+                type,
+                installmentCount,
+                payments: [],
+                startDate,
+                status: 'active',
+                notes
+            });
+        }
+
+        this.saveEMI();
+        this.renderEMIList();
+        document.getElementById('emiForm').reset();
+        document.getElementById('emiStartDate').value = new Date().toISOString().split('T')[0];
+        this.toggleInstallmentCount();
+
+        if (typeof inventoryManager !== 'undefined') {
+            inventoryManager.showToast(this.editingEMIId ? 'EMI plan updated!' : 'EMI plan created!', 'success');
+        }
+    }
+
+    cancelEMIEdit() {
+        this.editingEMIId = null;
+        document.getElementById('emiForm').reset();
+        document.getElementById('emiStartDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('cancelEMIEdit').style.display = 'none';
+        document.querySelector('#emiForm button[type="submit"]').textContent = 'Create EMI Plan';
+        this.toggleInstallmentCount();
+    }
+
+    deleteEMI(id) {
+        if (confirm('Are you sure you want to delete this EMI plan?')) {
+            this.emiPlans = this.emiPlans.filter(e => e.id !== id);
+            this.saveEMI();
+            this.renderEMIList();
+        }
+    }
+
+    showPaymentForm(emiId) {
+        const form = document.getElementById(`paymentForm-${emiId}`);
+        if (form) form.style.display = 'block';
+    }
+
+    hidePaymentForm(emiId) {
+        const form = document.getElementById(`paymentForm-${emiId}`);
+        if (form) form.style.display = 'none';
+    }
+
+    recordPayment(emiId) {
+        const amountInput = document.getElementById(`paymentAmount-${emiId}`);
+        const notesInput = document.getElementById(`paymentNotes-${emiId}`);
+        const amount = parseFloat(amountInput?.value);
+        const notes = notesInput?.value || '';
+
+        if (!amount || amount <= 0) return;
+
+        const emi = this.emiPlans.find(e => e.id === emiId);
+        if (!emi) return;
+
+        emi.payments.push({
+            id: generateId(),
+            amount,
+            date: new Date().toISOString().split('T')[0],
+            notes
+        });
+
+        const totalPaid = emi.payments.reduce((sum, p) => sum + p.amount, 0);
+        if (totalPaid >= emi.totalAmount) {
+            emi.status = 'completed';
+        }
+
+        this.saveEMI();
+        this.renderEMIList();
+
+        if (typeof inventoryManager !== 'undefined') {
+            inventoryManager.showToast('Payment recorded!', 'success');
+        }
+    }
+
+    renderEMIList() {
+        const list = document.getElementById('emiList');
+        if (!list) return;
+
+        const statusFilter = document.getElementById('emiStatusFilter')?.value || '';
+        let filtered = this.emiPlans;
+        if (statusFilter) {
+            filtered = filtered.filter(e => e.status === statusFilter);
+        }
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="empty-state">No EMI plans found. Create one above!</div>';
+            return;
+        }
+
+        list.innerHTML = filtered.map(emi => {
+            const totalPaid = emi.payments.reduce((sum, p) => sum + p.amount, 0);
+            const remaining = Math.max(0, emi.totalAmount - totalPaid);
+            const progress = emi.totalAmount > 0 ? Math.min(100, (totalPaid / emi.totalAmount) * 100) : 0;
+            const isCompleted = emi.status === 'completed';
+
+            let nextDueDate = '';
+            if (emi.type === 'fixed' && emi.installmentCount > 0 && !isCompleted) {
+                const paidCount = emi.payments.length;
+                const startDate = new Date(emi.startDate);
+                const nextDue = new Date(startDate);
+                nextDue.setMonth(nextDue.getMonth() + paidCount);
+                nextDueDate = nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+
+            const paymentsHtml = emi.payments.length > 0 ? `
+                <div class="emi-payments-list">
+                    <strong>Payment History:</strong>
+                    ${emi.payments.map(p => `
+                        <div class="emi-payment-item">
+                            <span>${new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            <span>₹${p.amount.toFixed(2)}</span>
+                            ${p.notes ? `<span class="payment-note">${escapeHtml(p.notes)}</span>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            ` : '';
+
+            return `
+                <div class="emi-card ${isCompleted ? 'emi-completed' : ''}">
+                    <div class="emi-card-header">
+                        <div>
+                            <div class="emi-customer-name">${escapeHtml(emi.customerName)}</div>
+                            <div class="emi-description">${escapeHtml(emi.description || 'No description')}</div>
+                        </div>
+                        <span class="emi-status-badge ${isCompleted ? 'status-completed' : 'status-active'}">${isCompleted ? 'Completed' : 'Active'}</span>
+                    </div>
+                    <div class="emi-amounts">
+                        <div class="emi-amount-item">
+                            <span class="emi-amount-label">Total</span>
+                            <span class="emi-amount-value">₹${emi.totalAmount.toFixed(2)}</span>
+                        </div>
+                        <div class="emi-amount-item">
+                            <span class="emi-amount-label">Paid</span>
+                            <span class="emi-amount-value" style="color: var(--secondary-color)">₹${totalPaid.toFixed(2)}</span>
+                        </div>
+                        <div class="emi-amount-item">
+                            <span class="emi-amount-label">Remaining</span>
+                            <span class="emi-amount-value" style="color: var(--danger-color)">₹${remaining.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div class="emi-progress-bar">
+                        <div class="emi-progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="emi-meta">
+                        <span>Type: ${emi.type === 'fixed' ? 'Fixed (' + emi.installmentCount + ' installments)' : 'Flexible'}</span>
+                        ${nextDueDate ? `<span>Next Due: ${nextDueDate}</span>` : ''}
+                        <span>Started: ${emi.startDate ? new Date(emi.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
+                    </div>
+                    ${paymentsHtml}
+                    <div class="emi-actions">
+                        ${!isCompleted ? `<button class="btn btn-whatsapp" data-action="whatsappEMIReminder" data-id="${emi.id}">📱 Remind</button>` : ''}
+                        ${!isCompleted ? `<button class="btn btn-primary" style="width:auto;padding:8px 16px;" data-action="recordPayment" data-id="${emi.id}">Record Payment</button>` : ''}
+                        <button class="btn btn-delete" data-action="deleteEMI" data-id="${emi.id}">Delete</button>
+                    </div>
+                    <div id="paymentForm-${emi.id}" class="emi-payment-form" style="display:none;">
+                        <div class="form-group">
+                            <label>Payment Amount (₹)</label>
+                            <input type="number" id="paymentAmount-${emi.id}" step="0.01" min="0" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes (Optional)</label>
+                            <input type="text" id="paymentNotes-${emi.id}" placeholder="Payment notes...">
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary" style="width:auto;padding:8px 16px;" data-action="submitPayment" data-id="${emi.id}">Submit</button>
+                            <button class="btn btn-secondary" style="width:auto;padding:8px 16px;margin-top:0;" data-action="cancelPayment" data-id="${emi.id}">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ---- Dashboard Helpers ----
+    getActiveCustomerCount() {
+        return this.customers.filter(c => c.active !== false).length;
+    }
+
+    getPendingEMICount() {
+        return this.emiPlans.filter(e => e.status === 'active').length;
+    }
+
+    getTotalPendingEMIAmount() {
+        return this.emiPlans
+            .filter(e => e.status === 'active')
+            .reduce((sum, e) => {
+                const paid = e.payments.reduce((s, p) => s + p.amount, 0);
+                return sum + Math.max(0, e.totalAmount - paid);
+            }, 0);
+    }
+
+    getOverdueEMICount() {
+        const today = new Date().toISOString().split('T')[0];
+        return this.emiPlans.filter(e => {
+            if (e.status !== 'active' || e.type !== 'fixed') return false;
+            const paidCount = e.payments.length;
+            const startDate = new Date(e.startDate);
+            const nextDue = new Date(startDate);
+            nextDue.setMonth(nextDue.getMonth() + paidCount);
+            return nextDue.toISOString().split('T')[0] < today;
+        }).length;
+    }
+
+    // ---- WhatsApp Reminder Methods ----
+    openWhatsApp(phone, message) {
+        const encoded = encodeURIComponent(message);
+        const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+        const url = cleanPhone
+            ? `https://wa.me/${cleanPhone}?text=${encoded}`
+            : `https://wa.me/?text=${encoded}`;
+        window.open(url, '_blank');
+    }
+
+    sendCustomerMessage(customerId) {
+        const customer = this.customers.find(c => c.id === customerId);
+        if (!customer) return;
+
+        const planLabels = { 'weight-gain': 'Weight Gain', 'weight-loss': 'Weight Loss', 'general': 'General' };
+        const planName = planLabels[customer.plan] || customer.plan || 'wellness';
+        const message = `Hi ${customer.name}, this is a reminder from Nutrition Center.\nWe missed you! Stay consistent with your ${planName} plan.\nSee you soon!`;
+        this.openWhatsApp(customer.phone, message);
+    }
+
+    sendEMIReminder(emiId) {
+        const emi = this.emiPlans.find(e => e.id === emiId);
+        if (!emi) return;
+
+        const customer = this.customers.find(c => c.id === emi.customerId);
+        const phone = customer ? customer.phone : '';
+        const name = emi.customerName || (customer ? customer.name : 'Customer');
+
+        const totalPaid = emi.payments.reduce((sum, p) => sum + p.amount, 0);
+        const remaining = Math.max(0, emi.totalAmount - totalPaid);
+
+        let nextDueDate = '';
+        if (emi.type === 'fixed' && emi.installmentCount > 0) {
+            const paidCount = emi.payments.length;
+            const startDate = new Date(emi.startDate);
+            const nextDue = new Date(startDate);
+            nextDue.setMonth(nextDue.getMonth() + paidCount);
+            nextDueDate = nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        let message = `Hi ${name}, this is a reminder from Nutrition Center.\nYour EMI for "${emi.description || 'plan'}" has ₹${remaining.toFixed(2)} remaining.`;
+        if (nextDueDate) message += `\nNext due: ${nextDueDate}`;
+        message += `\nTotal: ₹${emi.totalAmount.toFixed(2)} | Paid: ₹${totalPaid.toFixed(2)}`;
+        message += `\nThank you!`;
+
+        this.openWhatsApp(phone, message);
+    }
+
+    sendAttendanceReminder(customerId) {
+        const customer = this.customers.find(c => c.id === customerId);
+        if (!customer) return;
+
+        const lastDate = this.attendance
+            .filter(a => a.customerId === customerId)
+            .map(a => a.date)
+            .sort()
+            .reverse()[0];
+        const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 'several';
+
+        const planLabels = { 'weight-gain': 'Weight Gain', 'weight-loss': 'Weight Loss', 'general': 'General' };
+        const planName = planLabels[customer.plan] || customer.plan || 'wellness';
+
+        const message = `Hi ${customer.name}, we noticed you haven't visited in ${daysAgo} days.\nConsistency is key for your ${planName} plan!\nCome back soon — we're here to help!`;
+        this.openWhatsApp(customer.phone, message);
+    }
+}
