@@ -687,30 +687,35 @@ class CustomerManager {
         const list = document.getElementById('customerList');
         if (!list) return;
 
-        const search = (document.getElementById('customerSearch')?.value || '').toLowerCase();
-        const planFilter = document.getElementById('customerPlanFilter')?.value || '';
+        try {
+            const search = (document.getElementById('customerSearch')?.value || '').toLowerCase();
+            const planFilter = document.getElementById('customerPlanFilter')?.value || '';
 
-        let filtered = this.customers.filter(c => {
-            const matchesSearch = !search || c.name.toLowerCase().includes(search) || (c.phone && c.phone.includes(search));
-            const matchesPlan = !planFilter || c.plan === planFilter;
-            return matchesSearch && matchesPlan;
-        });
+            let filtered = this.customers.filter(c => {
+                const matchesSearch = !search || c.name.toLowerCase().includes(search) || (c.phone && c.phone.includes(search));
+                const matchesPlan = !planFilter || c.plan === planFilter;
+                return matchesSearch && matchesPlan;
+            });
 
-        if (filtered.length === 0) {
-            list.innerHTML = '<div class="empty-state">No customers found. Add your first customer above!</div>';
-            return;
-        }
-
-        list.innerHTML = filtered.map(c => {
-            const streak = this.getStreak(c.id);
-            const status = this.getPackStatus(c);
-            let statusHtml = '';
-            if (status) {
-                const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
-                statusHtml = `<span style="font-size:0.85rem; color:${color}; font-weight:700; background:rgba(0,0,0,0.05); padding:2px 8px; border-radius:4px; margin-left:10px;">
-                    ${status.isExpired ? 'Expired' : status.daysLeft + ' Days Left'}
-                </span>`;
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="empty-state">No customers found. Add your first customer above!</div>';
+                return;
             }
+
+            list.innerHTML = filtered.map(c => {
+                let streak = 0;
+                try { streak = this.getStreak(c.id); } catch(e) { console.error("Streak error", e); }
+                
+                let statusHtml = '';
+                try {
+                    const status = this.getPackStatus(c);
+                    if (status) {
+                        const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
+                        statusHtml = `<span style="font-size:0.85rem; color:${color}; font-weight:700; background:rgba(0,0,0,0.05); padding:2px 8px; border-radius:4px; margin-left:10px;">
+                            ${status.isExpired ? 'Expired' : status.daysLeft + ' Days Left'}
+                        </span>`;
+                    }
+                } catch(e) { console.error("Status error", e); }
 
             const planLabels = { 
                 'premium-30': 'Premium 30D', 
@@ -753,7 +758,11 @@ class CustomerManager {
                     </div>
                 </div>
             `;
-        }).join('');
+            }).join('');
+        } catch (error) {
+            console.error('Render Customers error:', error);
+            list.innerHTML = `<div class="empty-state">Error loading customers: ${error.message}</div>`;
+        }
     }
 
     // ---- Attendance ----
@@ -780,103 +789,120 @@ class CustomerManager {
         const monthLabel = document.getElementById('attendanceMonthLabel');
         if (!grid || !monthLabel) return;
 
-        const year = this.attendanceYear;
-        const month = this.attendanceMonth;
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        monthLabel.textContent = monthName;
+        try {
+            const year = this.attendanceYear;
+            const month = this.attendanceMonth;
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            monthLabel.textContent = monthName;
 
-        const activeCustomers = this.customers.filter(c => c.active !== false);
+            const activeCustomers = this.customers.filter(c => c.active !== false);
 
-        if (activeCustomers.length === 0) {
-            grid.innerHTML = '<div class="empty-state">No active customers. Add customers first!</div>';
-            return;
-        }
-
-        let html = '<div class="attendance-table-wrapper"><table class="attendance-table"><thead><tr><th>Customer</th>';
-        for (let d = 1; d <= daysInMonth; d++) {
-            html += `<th>${d}</th>`;
-        }
-        html += '<th>Month</th><th>Left</th></tr></thead><tbody>';
-
-        activeCustomers.forEach(c => {
-            const status = this.getPackStatus(c);
-            let leftDisplay = '-';
-            let leftColor = '';
-            
-            if (status) {
-                leftDisplay = status.daysLeft;
-                if (status.isExpired) {
-                    leftDisplay = '🚫 0';
-                    leftColor = 'var(--danger-color)';
-                } else if (status.daysLeft <= 3) {
-                    leftColor = 'var(--warning-color)';
-                    leftDisplay = `⚠️ ${status.daysLeft}`;
-                }
+            if (activeCustomers.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No active customers. Add customers first!</div>';
+                return;
             }
 
-            html += `<tr><td class="attendance-customer-name">${escapeHtml(c.name)}</td>`;
-            let monthTotal = 0;
+            let html = '<div class="attendance-table-wrapper"><table class="attendance-table"><thead><tr><th>Customer</th>';
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const isPresent = this.attendance.some(a => a.customerId === c.id && a.date === dateStr);
-                if (isPresent) monthTotal++;
-                html += `<td class="attendance-cell ${isPresent ? 'present' : ''}" data-customer-id="${c.id}" data-date="${dateStr}">${isPresent ? '&#10003;' : ''}</td>`;
+                html += `<th>${d}</th>`;
             }
-            html += `<td class="attendance-total">${monthTotal}</td>
-                    <td style="font-weight:700; color:${leftColor}; text-align:center;">${leftDisplay}</td></tr>`;
-        });
+            html += '<th>Month</th><th>Left</th></tr></thead><tbody>';
 
-        html += '</tbody></table></div>';
+            activeCustomers.forEach(c => {
+                const status = this.getPackStatus(c);
+                let leftDisplay = '-';
+                let leftColor = '';
+                
+                if (status) {
+                    leftDisplay = status.daysLeft;
+                    if (status.isExpired) {
+                        leftDisplay = '🚫 0';
+                        leftColor = 'var(--danger-color)';
+                    } else if (status.daysLeft <= 3) {
+                        leftColor = 'var(--warning-color)';
+                        leftDisplay = `⚠️ ${status.daysLeft}`;
+                    }
+                }
 
-        // Inactive customers section with remind buttons
-        const inactiveList = this.getInactiveCustomers();
-        if (inactiveList.length > 0) {
-            html += `<div class="inactive-alert">
-                <strong>Inactive (no attendance in 7 days):</strong>
-                <div class="inactive-customers-list">
-                    ${inactiveList.map(c => {
-                        const lastDate = this.attendance
-                            .filter(a => a.customerId === c.id)
-                            .map(a => a.date)
-                            .sort()
-                            .reverse()[0];
-                        const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 'many';
-                        return `<div class="inactive-customer-item">
-                            <span>${escapeHtml(c.name)} — ${daysAgo} days ago</span>
-                            <button class="btn btn-whatsapp btn-whatsapp-sm" data-action="whatsappAttendance" data-id="${c.id}">📱 Remind</button>
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>`;
+                html += `<tr><td class="attendance-customer-name">${escapeHtml(c.name)}</td>`;
+                let monthTotal = 0;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const isPresent = this.attendance.some(a => a.customerId === c.id && a.date === dateStr);
+                    if (isPresent) monthTotal++;
+                    html += `<td class="attendance-cell ${isPresent ? 'present' : ''}" data-customer-id="${c.id}" data-date="${dateStr}">${isPresent ? '&#10003;' : ''}</td>`;
+                }
+                html += `<td class="attendance-total">${monthTotal}</td>
+                        <td style="font-weight:700; color:${leftColor}; text-align:center;">${leftDisplay}</td></tr>`;
+            });
+
+            html += '</tbody></table></div>';
+
+            // Inactive customers section with remind buttons
+            const inactiveList = this.getInactiveCustomers();
+            if (inactiveList.length > 0) {
+                html += `<div class="inactive-alert">
+                    <strong>Inactive (no attendance in 7 days):</strong>
+                    <div class="inactive-customers-list">
+                        ${inactiveList.map(c => {
+                            const lastDate = this.attendance
+                                .filter(a => a.customerId === c.id)
+                                .map(a => a.date)
+                                .sort()
+                                .reverse()[0];
+                            const daysAgo = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 'many';
+                            return `<div class="inactive-customer-item">
+                                <span>${escapeHtml(c.name)} — ${daysAgo} days ago</span>
+                                <button class="btn btn-whatsapp btn-whatsapp-sm" data-action="whatsappAttendance" data-id="${c.id}">📱 Remind</button>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }
+
+            grid.innerHTML = html;
+        } catch (error) {
+            console.error("Attendance render error:", error);
+            grid.innerHTML = `<div class="empty-state">Error loading attendance: ${error.message}</div>`;
         }
-
-        grid.innerHTML = html;
     }
 
     getStreak(customerId) {
-        const dates = this.attendance
-            .filter(a => a.customerId === customerId)
-            .map(a => a.date)
-            .sort()
-            .reverse();
+        try {
+            const dates = new Set(this.attendance
+                .filter(a => a.customerId === customerId)
+                .map(a => a.date));
 
-        if (dates.length === 0) return 0;
+            if (dates.size === 0) return 0;
 
-        let streak = 0;
-        let checkDate = new Date();
-        checkDate.setHours(0, 0, 0, 0);
+            let streak = 0;
+            let checkDate = new Date();
+            checkDate.setHours(0, 0, 0, 0);
 
-        for (let i = 0; i < 365; i++) {
-            const dateStr = checkDate.toISOString().split('T')[0];
-            if (dates.includes(dateStr)) {
-                streak++;
-            } else if (i > 0) {
-                break;
+            // Check up to 365 days back
+            for (let i = 0; i < 365; i++) {
+                const dateStr = checkDate.toISOString().split('T')[0];
+                if (dates.has(dateStr)) {
+                    streak++;
+                } else {
+                    // If we didn't find today but find yesterday, continue streak
+                    // Otherwise break
+                    if (i > 0) break; 
+                    
+                    // If i == 0 (today), it's possible they haven't checked in YET today
+                    // So we check yesterday too
+                    const yesterday = new Date(checkDate);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    if (!dates.has(yesterday.toISOString().split('T')[0])) break;
+                }
+                checkDate.setDate(checkDate.getDate() - 1);
             }
-            checkDate.setDate(checkDate.getDate() - 1);
+            return streak;
+        } catch (e) {
+            console.error("Streak calculation error:", e);
+            return 0;
         }
-        return streak;
     }
 
     getInactiveCustomers() {
@@ -1245,35 +1271,40 @@ class CustomerManager {
         const presentTodayList = document.getElementById('presentTodayList');
         if (!notPresentList || !presentTodayList) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        const activeCustomers = this.customers.filter(c => c.active !== false);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const activeCustomers = this.customers.filter(c => c.active !== false);
 
-        const present = activeCustomers.filter(c => this.attendance.some(a => a.customerId === c.id && a.date === today));
-        const notPresent = activeCustomers.filter(c => !this.attendance.some(a => a.customerId === c.id && a.date === today));
+            const present = activeCustomers.filter(c => this.attendance.some(a => a.customerId === c.id && a.date === today));
+            const notPresent = activeCustomers.filter(c => !this.attendance.some(a => a.customerId === c.id && a.date === today));
 
-        const renderItem = (c, isPresent) => {
-            const status = this.getPackStatus(c);
-            let statusHtml = '';
-            if (status) {
-                const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
-                statusHtml = `<span style="font-size:0.8rem; color:${color}; font-weight:600;">
-                    (${status.isExpired ? 'Expired' : status.daysLeft + ' days left'})
-                </span>`;
-            }
+            const renderItem = (c, isPresent) => {
+                const status = this.getPackStatus(c);
+                let statusHtml = '';
+                if (status) {
+                    const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
+                    statusHtml = `<span style="font-size:0.8rem; color:${color}; font-weight:600;">
+                        (${status.isExpired ? 'Expired' : status.daysLeft + ' days left'})
+                    </span>`;
+                }
 
-            return `
-                <div class="inactive-customer-item" style="cursor:pointer; ${isPresent ? 'background:rgba(80, 200, 120, 0.1);' : ''}" onclick="customerManager.toggleDailyAttendance('${c.id}')">
-                    <div style="flex:1;">
-                        <span style="font-weight:600;">${escapeHtml(c.name)}</span> ${statusHtml}
-                        <div style="font-size:0.75rem; color:var(--text-secondary);">${c.phone || 'No phone'}</div>
+                return `
+                    <div class="inactive-customer-item" style="cursor:pointer; ${isPresent ? 'background:rgba(80, 200, 120, 0.1);' : ''}" onclick="customerManager.toggleDailyAttendance('${c.id}')">
+                        <div style="flex:1;">
+                            <span style="font-weight:600;">${escapeHtml(c.name)}</span> ${statusHtml}
+                            <div style="font-size:0.75rem; color:var(--text-secondary);">${c.phone || 'No phone'}</div>
+                        </div>
+                        <div style="font-size:1.2rem;">${isPresent ? '✅' : '⭕'}</div>
                     </div>
-                    <div style="font-size:1.2rem;">${isPresent ? '✅' : '⭕'}</div>
-                </div>
-            `;
-        };
+                `;
+            };
 
-        notPresentList.innerHTML = notPresent.length > 0 ? notPresent.map(c => renderItem(c, false)).join('') : '<div style="padding:10px; color:var(--text-secondary);">Everyone is checked in! 🎉</div>';
-        presentTodayList.innerHTML = present.length > 0 ? present.map(c => renderItem(c, true)).join('') : '<div style="padding:10px; color:var(--text-secondary);">No one has checked in yet.</div>';
+            notPresentList.innerHTML = notPresent.length > 0 ? notPresent.map(c => renderItem(c, false)).join('') : '<div style="padding:10px; color:var(--text-secondary);">Everyone is checked in! 🎉</div>';
+            presentTodayList.innerHTML = present.length > 0 ? present.map(c => renderItem(c, true)).join('') : '<div style="padding:10px; color:var(--text-secondary);">No one has checked in yet.</div>';
+        } catch (error) {
+            console.error("Daily check-in render error:", error);
+            notPresentList.innerHTML = `<div class="empty-state">Error loading check-in: ${error.message}</div>`;
+        }
     }
 
     toggleDailyAttendance(customerId) {
