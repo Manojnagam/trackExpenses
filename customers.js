@@ -539,7 +539,7 @@ class CustomerManager {
             this.composition[this.currentCompCustomerId] = [];
         }
 
-        this.composition[this.currentCompCustomerId].unshift(record);
+        this.composition[this.currentCompCustomerId].push(record);
         this.composition[this.currentCompCustomerId].sort((a, b) => new Date(a.date) - new Date(b.date));
 
         this.saveComposition();
