@@ -73,9 +73,13 @@ class CustomerManager {
 
         // Event delegation for all compositions list
         document.getElementById('allCompositionsList')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action]');
+            const btn = e.target.closest('[onclick*="viewComposition"], [data-action="viewComposition"]');
             if (!btn) return;
-            const { action, id } = btn.dataset;
+            
+            // If it's a data-action button (from previous versions or if onclick fails)
+            if (btn.dataset.action === 'viewComposition') {
+                this.viewComposition(btn.dataset.id);
+            }
         });
 
         // Event delegation for attendance grid
@@ -406,10 +410,15 @@ class CustomerManager {
     }
 
     viewComposition(id) {
-        const customer = this.customers.find(c => c.id === id);
-        if (!customer) return;
+        console.log('viewComposition called with id:', id);
+        const customer = this.customers.find(c => String(c.id) === String(id));
+        if (!customer) {
+            console.error('Customer not found for id:', id);
+            alert('Error: Customer not found. Please refresh the page.');
+            return;
+        }
 
-        this.currentCompCustomerId = id;
+        this.currentCompCustomerId = customer.id;
         document.getElementById('compCustomerName').textContent = `Body Composition: ${customer.name}`;
         document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
         
