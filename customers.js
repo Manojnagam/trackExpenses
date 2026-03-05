@@ -64,9 +64,18 @@ class CustomerManager {
 
         // Event delegation for customer list
         document.getElementById('customerList')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action]');
+            const btn = e.target.closest('button');
             if (!btn) return;
+
             const { action, id } = btn.dataset;
+            const text = btn.textContent;
+
+            if (text.includes('Composition')) {
+                const compId = btn.getAttribute('data-id');
+                if (compId) this.viewComposition(compId);
+                return;
+            }
+
             if (action === 'editCustomer') this.editCustomer(id);
             else if (action === 'deleteCustomer') this.deleteCustomer(id);
             else if (action === 'whatsappCustomer') this.sendCustomerMessage(id);
@@ -74,7 +83,18 @@ class CustomerManager {
 
         // Event delegation for all compositions list
         document.getElementById('allCompositionsList')?.addEventListener('click', (e) => {
-            // No action needed here, onclick is handled directly on buttons
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            
+            const text = btn.textContent;
+            if (text.includes('View Details') || text.includes('Add Entry')) {
+                // Extract ID from the attribute we'll add
+                const id = btn.getAttribute('data-id');
+                if (id) {
+                    console.log('Delegation hit for ID:', id);
+                    this.viewComposition(id);
+                }
+            }
         });
 
         // Event delegation for attendance grid
@@ -392,8 +412,8 @@ class CustomerManager {
                         ` : '<p>Start tracking by clicking below.</p>'}
                     </div>
                     <div class="customer-card-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="window.customerManager.quickAddComp('${customer.id}')">View Details v1.3</button>
-                        <button class="btn btn-primary btn-sm" onclick="window.customerManager.quickAddComp('${customer.id}')">Add Entry v1.3</button>
+                        <button class="btn btn-secondary btn-sm" data-id="${customer.id}">View Details v1.3</button>
+                        <button class="btn btn-primary btn-sm" data-id="${customer.id}">Add Entry v1.3</button>
                     </div>
                 </div>
             `;
@@ -613,7 +633,7 @@ class CustomerManager {
                     ${c.address ? `<div class="customer-notes">Addr: ${escapeHtml(c.address)}</div>` : ''}
                     ${c.notes ? `<div class="customer-notes">${escapeHtml(c.notes)}</div>` : ''}
                     <div class="customer-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <button class="btn btn-info" style="background:#17a2b8; color:white;" onclick="customerManager.viewComposition('${c.id}')">📊 Composition</button>
+                        <button class="btn btn-info" style="background:#17a2b8; color:white;" data-id="${c.id}">📊 Composition</button>
                         <button class="btn btn-whatsapp" data-action="whatsappCustomer" data-id="${c.id}">📱 WhatsApp</button>
                         <button class="btn btn-edit" data-action="editCustomer" data-id="${c.id}">Edit</button>
                         <button class="btn btn-delete" data-action="deleteCustomer" data-id="${c.id}">Delete</button>
@@ -1246,3 +1266,21 @@ class CustomerManager {
         }
     }
 }
+
+// GLOBAL DEBUG MONITOR
+window.addEventListener('error', function(e) {
+    window.alert('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
+});
+
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('button');
+    if (target) {
+        console.log('Button clicked:', target.textContent, 'onclick:', target.getAttribute('onclick'));
+        if (target.textContent.includes('v1.3')) {
+            window.alert('🖱️ Raw Click Detected on: ' + target.textContent);
+            if (!window.customerManager) {
+                window.alert('❌ CRITICAL: window.customerManager is MISSING!');
+            }
+        }
+    }
+}, true);
