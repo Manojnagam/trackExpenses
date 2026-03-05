@@ -802,6 +802,33 @@
                     <button class="btn btn-danger" id="clearDataBtn">🗑️ Reset App Data</button>
                 </div>
                 <div class="settings-section">
+                    <h3>Inventory Management</h3>
+                    <button class="btn btn-secondary" id="backupInventoryBtn">💾 Backup Inventory</button>
+                    <button class="btn btn-secondary" id="restoreInventoryBtn">📂 Restore Inventory</button>
+                    <input type="file" id="restoreInventoryFile" accept=".json" style="display: none;">
+                    <button class="btn btn-info" id="checkInventoryDataBtn" style="background: #17a2b8; color: white;">🔍 Check Inventory Data</button>
+                </div>
+                <div class="settings-section">
+                    <h3>Recurring Expenses</h3>
+                    <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:10px;">Auto-added on the 1st of each month:</p>
+                    <div id="recurringExpensesList"></div>
+                    <div style="margin-top:15px;">
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <input type="text" id="newRecurringDesc" placeholder="Description (e.g. Rent)" style="width:100%;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <input type="number" id="newRecurringAmount" placeholder="Amount" step="0.01" min="0" style="flex:1;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                            <select id="newRecurringCategory" style="flex:1;padding:8px;border:2px solid var(--border-color);border-radius:6px;">
+                                <option value="Rent">Rent</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" id="addRecurringBtn" style="margin-top:10px;">+ Add Recurring Expense</button>
+                    </div>
+                </div>
+                <div class="settings-section">
                     <h3>Business Options</h3>
                     <button class="btn btn-secondary" id="printBtn">🖨️ Print Page</button>
                     <button class="btn btn-secondary" id="exportCSVBtn">📄 Export as CSV</button>
@@ -915,15 +942,15 @@
         </div>
     </div>
 
-    <script src="app.js?v=3.0"></script>
-    <script src="inventory.js?v=3.0"></script>
-    <script src="customers.js?v=3.0"></script>
-    <script src="dashboard.js?v=3.0"></script>
-    <script src="insights.js?v=3.0"></script>
+    <script src="app.js?v=3.1"></script>
+    <script src="inventory.js?v=3.1"></script>
+    <script src="customers.js?v=3.1"></script>
+    <script src="dashboard.js?v=3.1"></script>
+    <script src="insights.js?v=3.1"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=3.0"></script>
+    <script src="firebase-sync.js?v=3.1"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
