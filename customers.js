@@ -567,20 +567,20 @@ class CustomerManager {
             return `
                 <tr>
                     <td>${new Date(r.date).toLocaleDateString('en-GB')}</td>
-                    <td><strong>${r.weight} kg</strong></td>
+                    <td><strong>${r.weight}</strong></td>
                     <td>
-                        <div style="font-weight:bold;">${fatKg} kg</div>
+                        <div style="font-weight:bold;">${fatKg}</div>
                         <div style="font-size:0.75rem; color:var(--text-secondary);">${r.fat}%</div>
                     </td>
                     <td>
-                        <div style="font-weight:bold; color:var(--danger-color);">${vfKg} kg</div>
+                        <div style="font-weight:bold; color:var(--danger-color);">${vfKg}</div>
                     </td>
                     <td>${r.bmr}</td>
                     <td>${r.bmi}</td>
                     <td>${r.bodyAge}</td>
-                    <td>${subcutKg} kg</td>
+                    <td>${subcutKg}</td>
                     <td>
-                        <div style="font-weight:bold;">${muscleKg} kg</div>
+                        <div style="font-weight:bold;">${muscleKg}</div>
                         <div style="font-size:0.75rem; color:var(--text-secondary);">${r.muscle}%</div>
                     </td>
                     <td>
