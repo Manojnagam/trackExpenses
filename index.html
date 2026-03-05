@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nutrition Center Manager</title>
+    <title>Dharani's Wellness Center</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,8 +21,8 @@
         <header>
             <div class="header-content">
                 <div>
-                    <h1>🍎 Nutrition Center Manager</h1>
-                    <p class="subtitle">Track finances, inventory, and customers professionally</p>
+                    <h1>🍎 Dharani's Wellness Center</h1>
+                    <p class="subtitle">Personalized Wellness & Nutrition Tracking</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn-icon" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
@@ -466,6 +466,7 @@
                         <h3 style="margin-bottom:0;">Daily Summary (Quick Entry)</h3>
                         <div style="display:flex;gap:10px;">
                             <button class="btn btn-secondary" id="exportDailyUsageBtn" style="width:auto;">📥 Download History</button>
+                            <button class="btn btn-primary" id="generatePosterBtn" style="width:auto; background:#ff7f50;">🎨 Generate Poster</button>
                             <button class="btn btn-export" id="whatsappDailySummary" style="width:auto;">📱 Share via WhatsApp</button>
                         </div>
                     </div>
@@ -944,6 +945,49 @@
                     <div id="compWeeklySummary" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-top:20px;">
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Poster Modal -->
+    <div id="posterModal" class="modal">
+        <div class="modal-content" style="max-width:500px; padding:0; overflow:hidden; border:none; border-radius:20px;">
+            <div id="posterContainer" style="background:linear-gradient(135deg, #50c878 0%, #2e8b57 100%); color:white; padding:40px 30px; text-align:center; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <div style="font-size:3rem; margin-bottom:10px;">🍏</div>
+                <h1 style="font-size:2.2rem; margin:0; text-transform:uppercase; letter-spacing:2px; font-weight:800;">Dharani's</h1>
+                <h2 style="font-size:1.4rem; margin:0 0 20px 0; opacity:0.9; font-weight:400;">Wellness Center</h2>
+                
+                <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:15px; padding:25px; margin:20px 0; border:1px solid rgba(255,255,255,0.2);">
+                    <div id="posterDate" style="font-size:1.1rem; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.3); padding-bottom:10px;">Thursday, March 5, 2026</div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                        <div>
+                            <div style="font-size:0.9rem; opacity:0.8;">TOTAL CUSTOMERS</div>
+                            <div id="posterTotalCustomers" style="font-size:2.5rem; font-weight:bold;">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.9rem; opacity:0.8;">TOTAL SHAKES</div>
+                            <div id="posterTotalShakes" style="font-size:2.5rem; font-weight:bold;">0</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top:25px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:1rem;">
+                        <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:8px;">
+                            <span>Weight Gain: </span>
+                            <strong id="posterGain">0</strong>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.1); padding:10px; border-radius:8px;">
+                            <span>Weight Loss: </span>
+                            <strong id="posterLoss">0</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <p style="font-style:italic; opacity:0.8; margin-top:20px; font-size:0.95rem;">"Health is the greatest wealth."</p>
+            </div>
+            <div style="padding:20px; background:white; display:flex; gap:10px;">
+                <button class="btn btn-primary" id="printPosterBtn" style="flex:1;">🖨️ Save / Print Poster</button>
+                <button class="btn btn-secondary" id="closePosterBtn" style="flex:1;">Close</button>
             </div>
         </div>
     </div>

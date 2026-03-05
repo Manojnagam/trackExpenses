@@ -235,6 +235,11 @@ class InventoryManager {
         // Export order list
         document.getElementById('exportOrderList').addEventListener('click', () => this.exportOrderList());
         document.getElementById('exportDailyUsageBtn')?.addEventListener('click', () => this.exportDailyUsageHistory());
+        document.getElementById('generatePosterBtn')?.addEventListener('click', () => this.generateDailyPoster());
+        document.getElementById('printPosterBtn')?.addEventListener('click', () => this.printPoster());
+        document.getElementById('closePosterBtn')?.addEventListener('click', () => {
+            document.getElementById('posterModal')?.classList.remove('show');
+        });
 
         // Check storage usage
         checkStorageUsage();
@@ -2096,17 +2101,29 @@ class InventoryManager {
             return;
         }
 
-        const headers = ['Date', 'Total Customers', 'Weight Gain Shakes', 'Weight Loss Shakes', 'Notes'];
-        const rows = summaries.map(s => [
-            s.date,
-            s.totalCustomers || 0,
-            s.weightGainShakes || 0,
-            s.weightLossShakes || 0,
-            s.notes || ''
-        ]);
-
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        
+        // Add Header Row with Center Name
+        const dataRows = [
+            ['Dharani\'s Wellness Center - Daily Summary History'],
+            [],
+            ['Date', 'Total Customers', 'Weight Gain Shakes', 'Weight Loss Shakes', 'Notes']
+        ];
+
+        summaries.forEach(s => {
+            dataRows.push([
+                s.date,
+                s.totalCustomers || 0,
+                s.weightGainShakes || 0,
+                s.weightLossShakes || 0,
+                s.notes || ''
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(dataRows);
+        
+        // Merge header cells
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
         
         // Set column widths
         ws['!cols'] = [
@@ -2118,8 +2135,60 @@ class InventoryManager {
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, 'Daily Summary History');
-        XLSX.writeFile(wb, `daily-summary-history-${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `Dharanis-Wellness-Daily-History-${new Date().toISOString().split('T')[0]}.xlsx`);
         this.showToast('Daily summary history exported successfully!', 'success');
+    }
+
+    generateDailyPoster() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todaySummary = this.dailyUsage.find(e => e.date === todayStr && e.type === 'summary') || {
+            totalCustomers: 0,
+            weightGainShakes: 0,
+            weightLossShakes: 0
+        };
+
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const dateFormatted = new Date().toLocaleDateString('en-US', options);
+
+        document.getElementById('posterDate').textContent = dateFormatted;
+        document.getElementById('posterTotalCustomers').textContent = todaySummary.totalCustomers;
+        document.getElementById('posterGain').textContent = todaySummary.weightGainShakes;
+        document.getElementById('posterLoss').textContent = todaySummary.weightLossShakes;
+        document.getElementById('posterTotalShakes').textContent = (todaySummary.weightGainShakes || 0) + (todaySummary.weightLossShakes || 0);
+
+        document.getElementById('posterModal')?.classList.add('show');
+    }
+
+    printPoster() {
+        const posterContent = document.getElementById('posterContainer');
+        if (!posterContent) return;
+
+        // Open print dialog specifically for the poster
+        const originalContent = document.body.innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Dharani's Wellness Center - Poster</title>
+                    <style>
+                        body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f0f0; }
+                        #poster { width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+                    </style>
+                </head>
+                <body>
+                    <div id="poster">
+                        ${posterContent.outerHTML}
+                    </div>
+                    <script>
+                        setTimeout(() => {
+                            window.print();
+                            window.close();
+                        }, 500);
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
     }
 
     // ---- Expiry Alerts ----
