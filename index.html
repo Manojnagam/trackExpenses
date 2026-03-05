@@ -858,7 +858,7 @@
                 <button class="modal-close" id="closeCompModal">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="stock-form-section" style="margin-bottom: 20px;">
+                <div id="compFormSection" class="stock-form-section" style="margin-bottom: 20px;">
                     <h3>Add Weekly Entry</h3>
                     <form id="compForm">
                         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
@@ -903,7 +903,7 @@
                     </form>
                 </div>
                 
-                <div class="stock-history">
+                <div id="compHistorySection" class="stock-history">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                         <h3>Progress History</h3>
                         <button class="btn btn-whatsapp" id="whatsappCompBtn" style="width:auto;">📱 Share Progress</button>
@@ -932,15 +932,15 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.4"></script>
-    <script src="inventory.js?v=1.4"></script>
-    <script src="customers.js?v=1.4"></script>
-    <script src="dashboard.js?v=1.4"></script>
-    <script src="insights.js?v=1.4"></script>
+    <script src="app.js?v=1.5"></script>
+    <script src="inventory.js?v=1.5"></script>
+    <script src="customers.js?v=1.5"></script>
+    <script src="dashboard.js?v=1.5"></script>
+    <script src="insights.js?v=1.5"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=1.4"></script>
+    <script src="firebase-sync.js?v=1.5"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {

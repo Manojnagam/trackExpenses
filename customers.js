@@ -1,19 +1,25 @@
 // ============================================================
 // Customer Database & Attendance Tracking
 // ============================================================
-window.alert('📥 customers.js LOADED v1.4');
 
 // GLOBAL DEBUG MONITOR
 window.addEventListener('error', function(e) {
-    window.alert('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
+    console.error('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
 });
 
 document.addEventListener('click', function(e) {
     const target = e.target.closest('button');
     if (target) {
         const text = target.textContent || '';
-        if (text.includes('v1.3') || text.includes('Composition')) {
-            window.alert('🖱️ RAW CLICK DETECTED\nText: ' + text + '\nID: ' + target.getAttribute('data-id'));
+        if (text.includes('v1.3') || text.includes('Composition') || text.includes('View Details') || text.includes('Add Entry')) {
+            const id = target.getAttribute('data-id');
+            if (id) {
+                if (text.includes('View Details') || text.includes('Composition')) {
+                    window.customerManager.viewComposition(id, 'history');
+                } else if (text.includes('Add Entry')) {
+                    window.customerManager.viewComposition(id, 'form');
+                }
+            }
         }
     }
 }, true);
@@ -89,7 +95,7 @@ class CustomerManager {
 
             if (text.includes('Composition')) {
                 const compId = btn.getAttribute('data-id');
-                if (compId) this.viewComposition(compId);
+                if (compId) this.viewComposition(compId, 'history');
                 return;
             }
 
@@ -104,12 +110,12 @@ class CustomerManager {
             if (!btn) return;
             
             const text = btn.textContent;
-            if (text.includes('View Details') || text.includes('Add Entry')) {
-                // Extract ID from the attribute we'll add
-                const id = btn.getAttribute('data-id');
-                if (id) {
-                    console.log('Delegation hit for ID:', id);
-                    this.viewComposition(id);
+            const id = btn.getAttribute('data-id');
+            if (id) {
+                if (text.includes('View Details')) {
+                    this.viewComposition(id, 'history');
+                } else if (text.includes('Add Entry')) {
+                    this.viewComposition(id, 'form');
                 }
             }
         });
@@ -429,39 +435,29 @@ class CustomerManager {
                         ` : '<p>Start tracking by clicking below.</p>'}
                     </div>
                     <div class="customer-card-actions">
-                        <button class="btn btn-secondary btn-sm" data-id="${customer.id}">View Details v1.3</button>
-                        <button class="btn btn-primary btn-sm" data-id="${customer.id}">Add Entry v1.3</button>
+                        <button class="btn btn-secondary btn-sm" data-id="${customer.id}">View Details</button>
+                        <button class="btn btn-primary btn-sm" data-id="${customer.id}">Add Entry</button>
                     </div>
                 </div>
             `;
         }).join('');
     }
 
-    quickAddComp(id) {
-        this.viewComposition(id);
-    }
-
-    viewComposition(id) {
-        console.log('viewComposition called with id:', id);
-        window.alert('✅ Button Clicked! ID: ' + id);
-        
-        if (!this.customers || this.customers.length === 0) {
-            window.alert('❌ Error: Customers list is empty!');
-            return;
-        }
-
+    viewComposition(id, mode = 'both') {
         const customer = this.customers.find(c => String(c.id) === String(id));
-        if (!customer) {
-            console.error('Customer not found for id:', id);
-            window.alert('❌ Error: Customer with ID [' + id + '] not found in our list of ' + this.customers.length + ' customers.');
-            return;
-        }
+        if (!customer) return;
 
-        window.alert('🎉 Found customer: ' + customer.name + '\nOpening modal now...');
         this.currentCompCustomerId = customer.id;
         document.getElementById('compCustomerName').textContent = `Body Composition: ${customer.name}`;
         document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
         
+        // Toggle sections based on mode
+        const formSection = document.getElementById('compFormSection');
+        const historySection = document.getElementById('compHistorySection');
+        
+        if (formSection) formSection.style.display = (mode === 'form' || mode === 'both') ? 'block' : 'none';
+        if (historySection) historySection.style.display = (mode === 'history' || mode === 'both') ? 'block' : 'none';
+
         this.renderComposition();
         document.getElementById('compositionModal').classList.add('show');
     }
@@ -501,6 +497,10 @@ class CustomerManager {
         this.saveComposition();
         this.renderComposition();
         this.renderAllCompositions();
+        
+        // After adding, show the history to confirm it was added
+        this.viewComposition(this.currentCompCustomerId, 'history');
+        
         document.getElementById('compForm').reset();
         document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
         
@@ -605,7 +605,6 @@ class CustomerManager {
         }
 
         list.innerHTML = filtered.map(c => {
-            const daysSinceJoined = c.joinDate ? Math.floor((Date.now() - new Date(c.joinDate).getTime()) / 86400000) : '—';
             const streak = this.getStreak(c.id);
             const status = this.getPackStatus(c);
             let statusHtml = '';
