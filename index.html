@@ -568,7 +568,7 @@
                         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
                             <div class="form-group">
                                 <label for="customerName">Name</label>
-                                <input type="text" id="customerName" placeholder="Customer name" required>
+                                <input type="text" id="customerName" placeholder="Customer name">
                             </div>
                             <div class="form-group">
                                 <label for="customerPhone">Mobile Number</label>
@@ -608,7 +608,8 @@
                             </div>
                             <div class="form-group">
                                 <label for="customerPlan">Plan / Pack</label>
-                                <select id="customerPlan" required>
+                                <select id="customerPlan">
+                                    <option value="">-- Select Plan (Optional) --</option>
                                     <option value="premium-30">Premium 30-Day (Shake+Hot) - ₹6969</option>
                                     <option value="standard-26">Standard 26-Day (Shake+Hot) - ₹5600</option>
                                     <option value="hot-drink-30">Monthly Hot Drink - ₹800</option>

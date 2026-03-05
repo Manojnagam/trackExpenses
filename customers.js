@@ -263,7 +263,8 @@ class CustomerManager {
         const joinDate = document.getElementById('customerJoinDate').value;
         const notes = document.getElementById('customerNotes').value.trim();
 
-        if (!name) return;
+        // Allowing all fields to be optional as requested
+        if (!name && !phone) return;
 
         if (this.editingCustomerId) {
             const index = this.customers.findIndex(c => c.id === this.editingCustomerId);
