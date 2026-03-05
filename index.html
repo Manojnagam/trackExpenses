@@ -462,9 +462,12 @@
             <div id="dailyUsageTab" class="inv-tab-content">
                 <!-- Daily Summary Section -->
                 <div class="stock-form-section" style="margin-bottom: 30px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:10px;flex-wrap:wrap;">
                         <h3 style="margin-bottom:0;">Daily Summary (Quick Entry)</h3>
-                        <button class="btn btn-export" id="whatsappDailySummary" style="width:auto;">📱 Share via WhatsApp</button>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-secondary" id="exportDailyUsageBtn" style="width:auto;">📥 Download History</button>
+                            <button class="btn btn-export" id="whatsappDailySummary" style="width:auto;">📱 Share via WhatsApp</button>
+                        </div>
                     </div>
                     <form id="dailySummaryForm">
                         <div class="form-group">

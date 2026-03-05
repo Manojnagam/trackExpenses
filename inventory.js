@@ -234,6 +234,7 @@ class InventoryManager {
 
         // Export order list
         document.getElementById('exportOrderList').addEventListener('click', () => this.exportOrderList());
+        document.getElementById('exportDailyUsageBtn')?.addEventListener('click', () => this.exportDailyUsageHistory());
 
         // Check storage usage
         checkStorageUsage();
@@ -2077,6 +2078,48 @@ class InventoryManager {
 
         XLSX.utils.book_append_sheet(wb, ws, 'Order List');
         XLSX.writeFile(wb, `order-list-${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    exportDailyUsageHistory() {
+        const summaries = this.dailyUsage.filter(u => u.type === 'summary');
+        
+        if (summaries.length === 0) {
+            this.showToast('No daily summary records to export.', 'info');
+            return;
+        }
+
+        // Sort by date descending
+        summaries.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (typeof XLSX === 'undefined') {
+            this.showToast('Excel library not loaded. Please refresh the page.', 'error');
+            return;
+        }
+
+        const headers = ['Date', 'Total Customers', 'Weight Gain Shakes', 'Weight Loss Shakes', 'Notes'];
+        const rows = summaries.map(s => [
+            s.date,
+            s.totalCustomers || 0,
+            s.weightGainShakes || 0,
+            s.weightLossShakes || 0,
+            s.notes || ''
+        ]);
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 15 }, // Date
+            { wch: 15 }, // Total Customers
+            { wch: 20 }, // Weight Gain
+            { wch: 20 }, // Weight Loss
+            { wch: 40 }  // Notes
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Daily Summary History');
+        XLSX.writeFile(wb, `daily-summary-history-${new Date().toISOString().split('T')[0]}.xlsx`);
+        this.showToast('Daily summary history exported successfully!', 'success');
     }
 
     // ---- Expiry Alerts ----
