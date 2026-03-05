@@ -797,9 +797,24 @@ class CustomerManager {
         for (let d = 1; d <= daysInMonth; d++) {
             html += `<th>${d}</th>`;
         }
-        html += '<th>Total</th></tr></thead><tbody>';
+        html += '<th>Month</th><th>Left</th></tr></thead><tbody>';
 
         activeCustomers.forEach(c => {
+            const status = this.getPackStatus(c);
+            let leftDisplay = '-';
+            let leftColor = '';
+            
+            if (status) {
+                leftDisplay = status.daysLeft;
+                if (status.isExpired) {
+                    leftDisplay = '🚫 0';
+                    leftColor = 'var(--danger-color)';
+                } else if (status.daysLeft <= 3) {
+                    leftColor = 'var(--warning-color)';
+                    leftDisplay = `⚠️ ${status.daysLeft}`;
+                }
+            }
+
             html += `<tr><td class="attendance-customer-name">${escapeHtml(c.name)}</td>`;
             let monthTotal = 0;
             for (let d = 1; d <= daysInMonth; d++) {
@@ -808,7 +823,8 @@ class CustomerManager {
                 if (isPresent) monthTotal++;
                 html += `<td class="attendance-cell ${isPresent ? 'present' : ''}" data-customer-id="${c.id}" data-date="${dateStr}">${isPresent ? '&#10003;' : ''}</td>`;
             }
-            html += `<td class="attendance-total">${monthTotal}</td></tr>`;
+            html += `<td class="attendance-total">${monthTotal}</td>
+                    <td style="font-weight:700; color:${leftColor}; text-align:center;">${leftDisplay}</td></tr>`;
         });
 
         html += '</tbody></table></div>';
@@ -1206,20 +1222,21 @@ class CustomerManager {
     getPackStatus(customer) {
         if (!customer.packStart || !customer.packDuration) return null;
 
-        const start = new Date(customer.packStart);
-        const end = new Date(start);
-        end.setDate(start.getDate() + customer.packDuration);
+        const packStartStr = customer.packStart; // e.g., "2023-10-01"
+        
+        // Count how many times they've attended since the pack started
+        const attendedSinceStart = this.attendance.filter(a => 
+            a.customerId === customer.id && a.date >= packStartStr
+        ).length;
 
-        const today = new Date();
-        today.setHours(0,0,0,0);
-
-        const diffTime = end - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const packSize = parseInt(customer.packDuration);
+        const remaining = packSize - attendedSinceStart;
 
         return {
-            daysLeft: diffDays,
-            endDate: end,
-            isExpired: diffDays <= 0
+            daysLeft: remaining,
+            isExpired: remaining <= 0,
+            total: packSize,
+            used: attendedSinceStart
         };
     }
 
