@@ -1,5 +1,5 @@
-// Firebase Cloud Sync - Cross-Device Data Sync (Secure v2.7)
-const APP_VERSION = "2.7";
+// Firebase Cloud Sync - Cross-Device Data Sync (Stable v3.0)
+const APP_VERSION = "3.0";
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDizRy1Oti70AFkJzrDQU8fdugvXWgHACQ",
     authDomain: "trackexpenses-6673a.firebaseapp.com",

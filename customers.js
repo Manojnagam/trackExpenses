@@ -2,28 +2,6 @@
 // Customer Database & Attendance Tracking
 // ============================================================
 
-// GLOBAL DEBUG MONITOR
-window.addEventListener('error', function(e) {
-    console.error('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
-});
-
-document.addEventListener('click', function(e) {
-    const target = e.target.closest('button');
-    if (target) {
-        const text = target.textContent || '';
-        if (text.includes('v1.3') || text.includes('Composition') || text.includes('View Details') || text.includes('Add Entry')) {
-            const id = target.getAttribute('data-id');
-            if (id) {
-                if (text.includes('View Details') || text.includes('Composition')) {
-                    window.customerManager.viewComposition(id, 'history');
-                } else if (text.includes('Add Entry')) {
-                    window.customerManager.viewComposition(id, 'form');
-                }
-            }
-        }
-    }
-}, true);
-
 class CustomerManager {
     constructor() {
         window.customerManager = this;
