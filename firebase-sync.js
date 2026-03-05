@@ -96,11 +96,13 @@ class CloudSync {
     }
 
     onAuthChanged(user) {
+        console.log('CloudSync: Auth changed, user:', !!user);
         this.user = user;
         this.updateAuthUI();
         if (user) {
             this.hookSaveMethods();
-            this.pullFromCloud();
+            // Pull with a small delay to ensure all managers are ready
+            setTimeout(() => this.pullFromCloud(), 500);
         } else {
             this.unhookSaveMethods();
         }

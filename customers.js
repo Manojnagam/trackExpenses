@@ -3,6 +3,7 @@
 // ============================================================
 class CustomerManager {
     constructor() {
+        window.customerManager = this;
         this.customers = this.loadCustomers();
         this.attendance = this.loadAttendance();
         this.emiPlans = this.loadEMI();
@@ -73,13 +74,7 @@ class CustomerManager {
 
         // Event delegation for all compositions list
         document.getElementById('allCompositionsList')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[onclick*="viewComposition"], [data-action="viewComposition"]');
-            if (!btn) return;
-            
-            // If it's a data-action button (from previous versions or if onclick fails)
-            if (btn.dataset.action === 'viewComposition') {
-                this.viewComposition(btn.dataset.id);
-            }
+            // No action needed here, onclick is handled directly on buttons
         });
 
         // Event delegation for attendance grid
@@ -397,7 +392,7 @@ class CustomerManager {
                         ` : '<p>Start tracking by clicking below.</p>'}
                     </div>
                     <div class="customer-card-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="customerManager.viewComposition('${customer.id}')">View Details</button>
+                        <button class="btn btn-secondary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">View Details</button>
                         <button class="btn btn-primary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">Add Entry</button>
                     </div>
                 </div>
@@ -411,13 +406,17 @@ class CustomerManager {
 
     viewComposition(id) {
         console.log('viewComposition called with id:', id);
+        // Added window.alert to be 100% sure it's hit on mobile
+        window.alert('Opening composition for ID: ' + id);
+        
         const customer = this.customers.find(c => String(c.id) === String(id));
         if (!customer) {
             console.error('Customer not found for id:', id);
-            alert('Error: Customer not found. Please refresh the page.');
+            window.alert('Error: Customer not found for ID: ' + id);
             return;
         }
 
+        window.alert('Found customer: ' + customer.name);
         this.currentCompCustomerId = customer.id;
         document.getElementById('compCustomerName').textContent = `Body Composition: ${customer.name}`;
         document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
