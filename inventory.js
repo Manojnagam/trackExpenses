@@ -2105,7 +2105,7 @@ class InventoryManager {
         
         // Add Header Row with Center Name
         const dataRows = [
-            ['Dharani\'s Wellness Center - Daily Summary History'],
+            ['Dharani\'s - Daily Summary History'],
             [],
             ['Date', 'Total Customers', 'Weight Gain Shakes', 'Weight Loss Shakes', 'Notes']
         ];
@@ -2169,7 +2169,7 @@ class InventoryManager {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Dharani's Wellness Center - Poster</title>
+                    <title>Dharani's - Poster</title>
                     <style>
                         body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f0f0; }
                         #poster { width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
