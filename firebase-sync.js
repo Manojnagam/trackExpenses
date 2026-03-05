@@ -244,19 +244,47 @@ class CloudSync {
 
     reloadAllManagers() {
         if (window.tracker) {
-            const raw = localStorage.getItem('nutritionExpenses');
-            if (raw) tracker.expenses = JSON.parse(raw);
-            tracker.renderExpenses(); tracker.updateStats(); tracker.updateCharts();
+            const rawE = localStorage.getItem('nutritionExpenses');
+            if (rawE) tracker.expenses = JSON.parse(rawE);
+            const rawR = localStorage.getItem('nutritionRecurring');
+            if (rawR) tracker.recurringExpenses = JSON.parse(rawR);
+            tracker.renderExpenses(); 
+            tracker.updateStats(); 
+            tracker.updateCharts();
+            tracker.renderRecurringExpenses();
         }
         if (window.customerManager) {
             const rawC = localStorage.getItem('nutritionCustomers');
             if (rawC) customerManager.customers = JSON.parse(rawC);
-            customerManager.renderCustomers(); customerManager.renderAllCompositions();
+            const rawA = localStorage.getItem('nutritionAttendance');
+            if (rawA) customerManager.attendance = JSON.parse(rawA);
+            const rawEMI = localStorage.getItem('nutritionEMI');
+            if (rawEMI) customerManager.emiPlans = JSON.parse(rawEMI);
+            const rawComp = localStorage.getItem('nutritionComposition');
+            if (rawComp) customerManager.compositions = JSON.parse(rawComp);
+            
+            customerManager.renderCustomers();
+            customerManager.renderDailyCheckin();
+            customerManager.renderAttendance();
+            customerManager.renderAllCompositions();
+            customerManager.renderEMIList();
         }
         if (window.inventoryManager) {
-            const rawS = localStorage.getItem('inventoryStock');
-            if (rawS) inventoryManager.stockData = JSON.parse(rawS);
+            const rawStock = localStorage.getItem('inventoryStock');
+            if (rawStock) inventoryManager.stockData = JSON.parse(rawStock);
+            const rawIn = localStorage.getItem('inventoryStockIn');
+            if (rawIn) inventoryManager.stockInHistory = JSON.parse(rawIn);
+            const rawOut = localStorage.getItem('inventoryStockOut');
+            if (rawOut) inventoryManager.stockOutHistory = JSON.parse(rawOut);
+            const rawUsage = localStorage.getItem('inventoryDailyUsage');
+            if (rawUsage) inventoryManager.dailyUsage = JSON.parse(rawUsage);
+
             inventoryManager.renderCurrentStock();
+            inventoryManager.renderStockInHistory();
+            inventoryManager.renderStockOutHistory();
+            inventoryManager.renderDailyUsage();
+            inventoryManager.updateOrderList();
+            inventoryManager.checkAlerts();
         }
         if (window.dashboardManager) window.dashboardManager.refreshDashboard();
     }
@@ -320,7 +348,33 @@ class CloudSync {
 
     setStatus(s) {
         const el = document.getElementById('cloudSyncStatus');
-        if (el) el.querySelector('.dot').className = 'dot ' + s;
+        if (el) {
+            el.querySelector('.dot').className = 'dot ' + s;
+            this.updateStatusUI();
+        }
+    }
+
+    updateStatusUI() {
+        const el = document.getElementById('cloudSyncStatus');
+        if (!el) return;
+        const textEl = el.querySelector('.status-text');
+        const dotEl = el.querySelector('.dot');
+        
+        if (!this.online) {
+            textEl.textContent = 'Offline';
+            dotEl.className = 'dot error';
+            return;
+        }
+
+        if (dotEl.classList.contains('syncing')) {
+            textEl.textContent = 'Syncing...';
+        } else if (dotEl.classList.contains('error')) {
+            textEl.textContent = 'Sync Error';
+        } else if (dotEl.classList.contains('synced')) {
+            textEl.textContent = 'Cloud Active';
+        } else {
+            textEl.textContent = 'Ready';
+        }
     }
 
     updateLastSyncUI() {
