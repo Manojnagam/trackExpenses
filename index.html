@@ -871,12 +871,12 @@
                                 <input type="number" id="compWeight" step="0.1">
                             </div>
                             <div class="form-group">
-                                <label for="compFat">Fat (%)</label>
+                                <label for="compFat">Fat (%) <span id="calcFatKg" style="color:#50c878; font-size:0.8rem; margin-left:5px;"></span></label>
                                 <input type="number" id="compFat" step="0.1">
                             </div>
                             <div class="form-group">
-                                <label for="compVisceral">Visceral Fat</label>
-                                <input type="number" id="compVisceral" step="0.1">
+                                <label for="compVisceral">Visceral Fat <span id="calcVisceralKg" style="color:#e74c3c; font-size:0.8rem; margin-left:5px;"></span></label>
+                                <input type="number" id="compVisceral" step="0.1" readonly placeholder="Auto">
                             </div>
                             <div class="form-group">
                                 <label for="compBMR">BMR</label>
@@ -891,11 +891,11 @@
                                 <input type="number" id="compBodyAge" step="1">
                             </div>
                             <div class="form-group">
-                                <label for="compSubcut">Subcut. Fat (%)</label>
+                                <label for="compSubcut">Subcut. Fat (%) <span id="calcSubcutKg" style="color:#50c878; font-size:0.8rem; margin-left:5px;"></span></label>
                                 <input type="number" id="compSubcut" step="0.1">
                             </div>
                             <div class="form-group">
-                                <label for="compMuscle">Muscle (%)</label>
+                                <label for="compMuscle">Muscle (%) <span id="calcMuscleKg" style="color:#50c878; font-size:0.8rem; margin-left:5px;"></span></label>
                                 <input type="number" id="compMuscle" step="0.1">
                             </div>
                         </div>
@@ -914,13 +914,13 @@
                                 <tr>
                                     <th>Date</th>
                                     <th>Weight</th>
-                                    <th>Fat%</th>
-                                    <th>Visceral</th>
+                                    <th>Fat (kg)</th>
+                                    <th>VF (kg)</th>
                                     <th>BMR</th>
                                     <th>BMI</th>
                                     <th>Age</th>
-                                    <th>Subcut.</th>
-                                    <th>Muscle</th>
+                                    <th>Subcut (kg)</th>
+                                    <th>Muscle (kg)</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -932,15 +932,15 @@
         </div>
     </div>
 
-    <script src="app.js?v=1.5"></script>
-    <script src="inventory.js?v=1.5"></script>
-    <script src="customers.js?v=1.5"></script>
-    <script src="dashboard.js?v=1.5"></script>
-    <script src="insights.js?v=1.5"></script>
+    <script src="app.js?v=1.6"></script>
+    <script src="inventory.js?v=1.6"></script>
+    <script src="customers.js?v=1.6"></script>
+    <script src="dashboard.js?v=1.6"></script>
+    <script src="insights.js?v=1.6"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=1.5"></script>
+    <script src="firebase-sync.js?v=1.6"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {

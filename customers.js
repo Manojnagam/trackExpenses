@@ -47,6 +47,11 @@ class CustomerManager {
         document.getElementById('closeCompModal')?.addEventListener('click', () => this.closeCompModal());
         document.getElementById('whatsappCompBtn')?.addEventListener('click', () => this.shareCompProgress());
 
+        // Live calculation for composition
+        ['compWeight', 'compFat', 'compSubcut', 'compMuscle'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', () => this.calculateKgValues());
+        });
+
         // Customer search & filter
         document.getElementById('customerSearch')?.addEventListener('input', () => this.renderCustomers());
         document.getElementById('customerPlanFilter')?.addEventListener('change', () => this.renderCustomers());
@@ -409,16 +414,25 @@ class CustomerManager {
             
             let statusHTML = '<span class="status-badge status-inactive">No data</span>';
             let trendHTML = '';
+            let detailsHTML = '<p>Start tracking by clicking below.</p>';
 
             if (lastRecord) {
                 statusHTML = `<span class="status-badge status-active">Last entry: ${new Date(lastRecord.date).toLocaleDateString('en-GB')}</span>`;
                 
+                const fatKg = (lastRecord.weight * lastRecord.fat / 100).toFixed(1);
+                const muscleKg = (lastRecord.weight * lastRecord.muscle / 100).toFixed(1);
+
                 if (secondLastRecord) {
                     const diff = (lastRecord.weight - secondLastRecord.weight).toFixed(1);
                     const color = diff > 0 ? 'var(--danger-color)' : 'var(--secondary-color)';
                     const arrow = diff > 0 ? '↗' : '↘';
                     trendHTML = `<span style="color:${color}; font-weight:bold; margin-left:10px;">${arrow} ${Math.abs(diff)} kg</span>`;
                 }
+
+                detailsHTML = `
+                    <p><strong>Weight:</strong> ${lastRecord.weight} kg ${trendHTML}</p>
+                    <p><strong>Fat:</strong> ${fatKg} kg (${lastRecord.fat}%) | <strong>Muscle:</strong> ${muscleKg} kg</p>
+                `;
             }
 
             return `
@@ -429,10 +443,7 @@ class CustomerManager {
                     </div>
                     <div class="customer-card-details">
                         <p><strong>Phone:</strong> ${customer.phone}</p>
-                        ${lastRecord ? `
-                            <p><strong>Weight:</strong> ${lastRecord.weight} kg ${trendHTML}</p>
-                            <p><strong>Fat:</strong> ${lastRecord.fat}% | <strong>BMI:</strong> ${lastRecord.bmi}</p>
-                        ` : '<p>Start tracking by clicking below.</p>'}
+                        ${detailsHTML}
                     </div>
                     <div class="customer-card-actions">
                         <button class="btn btn-secondary btn-sm" data-id="${customer.id}">View Details</button>
@@ -466,6 +477,33 @@ class CustomerManager {
         this.currentCompCustomerId = null;
         document.getElementById('compositionModal').classList.remove('show');
         document.getElementById('compForm').reset();
+        // Clear calculated labels
+        ['calcFatKg', 'calcSubcutKg', 'calcMuscleKg', 'calcVisceralKg'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '';
+        });
+    }
+
+    calculateKgValues() {
+        const weight = parseFloat(document.getElementById('compWeight').value) || 0;
+        const fatPct = parseFloat(document.getElementById('compFat').value) || 0;
+        const subcutPct = parseFloat(document.getElementById('compSubcut').value) || 0;
+        const musclePct = parseFloat(document.getElementById('compMuscle').value) || 0;
+
+        if (weight > 0) {
+            const fatKg = (weight * fatPct / 100).toFixed(2);
+            const subcutKg = (weight * subcutPct / 100).toFixed(2);
+            const muscleKg = (weight * musclePct / 100).toFixed(2);
+            const vfKg = (fatKg - subcutKg).toFixed(2);
+
+            if (document.getElementById('calcFatKg')) document.getElementById('calcFatKg').textContent = `(${fatKg} kg)`;
+            if (document.getElementById('calcSubcutKg')) document.getElementById('calcSubcutKg').textContent = `(${subcutKg} kg)`;
+            if (document.getElementById('calcMuscleKg')) document.getElementById('calcMuscleKg').textContent = `(${muscleKg} kg)`;
+            
+            const vfInput = document.getElementById('compVisceral');
+            if (vfInput) vfInput.value = vfKg;
+            if (document.getElementById('calcVisceralKg')) document.getElementById('calcVisceralKg').textContent = `(${vfKg} kg)`;
+        }
     }
 
     handleCompSubmit(e) {
@@ -519,22 +557,38 @@ class CustomerManager {
             return;
         }
 
-        tbody.innerHTML = records.map(r => `
-            <tr>
-                <td>${new Date(r.date).toLocaleDateString('en-GB')}</td>
-                <td>${r.weight} kg</td>
-                <td>${r.fat}%</td>
-                <td>${r.visceral}</td>
-                <td>${r.bmr}</td>
-                <td>${r.bmi}</td>
-                <td>${r.bodyAge}</td>
-                <td>${r.subcut}%</td>
-                <td>${r.muscle}%</td>
-                <td>
-                    <button class="btn btn-delete btn-whatsapp-sm" onclick="customerManager.deleteCompRecord('${r.id}')">Delete</button>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = records.map(r => {
+            // Calculate KG on the fly for history
+            const fatKg = (r.weight * r.fat / 100).toFixed(2);
+            const subcutKg = (r.weight * r.subcut / 100).toFixed(2);
+            const muscleKg = (r.weight * r.muscle / 100).toFixed(2);
+            const vfKg = (fatKg - subcutKg).toFixed(2);
+
+            return `
+                <tr>
+                    <td>${new Date(r.date).toLocaleDateString('en-GB')}</td>
+                    <td><strong>${r.weight} kg</strong></td>
+                    <td>
+                        <div style="font-weight:bold;">${fatKg} kg</div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary);">${r.fat}%</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:bold; color:var(--danger-color);">${vfKg} kg</div>
+                    </td>
+                    <td>${r.bmr}</td>
+                    <td>${r.bmi}</td>
+                    <td>${r.bodyAge}</td>
+                    <td>${subcutKg} kg</td>
+                    <td>
+                        <div style="font-weight:bold;">${muscleKg} kg</div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary);">${r.muscle}%</div>
+                    </td>
+                    <td>
+                        <button class="btn btn-delete btn-whatsapp-sm" onclick="customerManager.deleteCompRecord('${r.id}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     deleteCompRecord(recordId) {
@@ -555,16 +609,20 @@ class CustomerManager {
         const latest = records[0];
         const previous = records.length > 1 ? records[1] : null;
 
+        const fatKg = (latest.weight * latest.fat / 100).toFixed(2);
+        const subcutKg = (latest.weight * latest.subcut / 100).toFixed(2);
+        const muscleKg = (latest.weight * latest.muscle / 100).toFixed(2);
+        const vfKg = (fatKg - subcutKg).toFixed(2);
+
         let message = `*Body Composition Report: ${customer.name}*\n`;
         message += `Date: ${new Date(latest.date).toLocaleDateString('en-GB')}\n\n`;
         message += `Weight: ${latest.weight} kg ${previous ? (latest.weight < previous.weight ? '▼' : '▲') : ''}\n`;
-        message += `Body Fat: ${latest.fat}%\n`;
-        message += `Visceral Fat: ${latest.visceral}\n`;
-        message += `Muscle: ${latest.muscle}%\n`;
+        message += `Total Fat: ${fatKg} kg (${latest.fat}%)\n`;
+        message += `Visceral Fat: ${vfKg} kg\n`;
+        message += `Muscle: ${muscleKg} kg (${latest.muscle}%)\n`;
         message += `Body Age: ${latest.bodyAge}\n`;
         message += `BMI: ${latest.bmi}\n`;
-        message += `BMR: ${latest.bmr}\n`;
-        message += `Subcut. Fat: ${latest.subcut}%\n\n`;
+        message += `BMR: ${latest.bmr}\n\n`;
         
         if (previous) {
             const weightDiff = (latest.weight - previous.weight).toFixed(1);
