@@ -2156,6 +2156,30 @@ class InventoryManager {
         document.getElementById('posterLoss').textContent = todaySummary.weightLossShakes;
         document.getElementById('posterTotalShakes').textContent = (todaySummary.weightGainShakes || 0) + (todaySummary.weightLossShakes || 0);
 
+        // Populate Anonymized Visitor List
+        const visitorListContainer = document.getElementById('posterVisitorList');
+        if (visitorListContainer && typeof customerManager !== 'undefined') {
+            const todayAttendance = customerManager.attendance.filter(a => a.date === todayStr);
+            if (todayAttendance.length > 0) {
+                visitorListContainer.innerHTML = todayAttendance.map(a => {
+                    const customer = customerManager.customers.find(c => c.id === a.customerId);
+                    if (!customer) return '';
+                    
+                    // Anonymize Name (Initials only)
+                    const nameParts = customer.name.split(' ');
+                    const initials = nameParts.map(p => p[0].toUpperCase() + '.').join(' ');
+                    
+                    // Anonymize Phone (Last 3 digits only)
+                    const phone = customer.phone || '';
+                    const maskedPhone = phone.length >= 3 ? `***${phone.slice(-3)}` : '***';
+                    
+                    return `<div style="padding:2px 0;">👤 ${initials} (${maskedPhone})</div>`;
+                }).join('');
+            } else {
+                visitorListContainer.innerHTML = '<div style="grid-column: 1 / -1; text-align:center;">No check-ins yet today</div>';
+            }
+        }
+
         document.getElementById('posterModal')?.classList.add('show');
     }
 
