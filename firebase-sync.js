@@ -1,4 +1,4 @@
-// Firebase Cloud Sync - Cross-Device Data Sync (Secure v2.5)
+// Firebase Cloud Sync - Cross-Device Data Sync (Secure v2.6)
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDizRy1Oti70AFkJzrDQU8fdugvXWgHACQ",
     authDomain: "trackexpenses-6673a.firebaseapp.com",
@@ -75,10 +75,11 @@ class CloudSync {
 
     async setBusinessId(id, pin) {
         if (!id || !pin) { alert('Please enter both ID and PIN'); return; }
+        if (pin.length < 4) { alert('PIN must be at least 4 digits'); return; }
         this.setStatus('syncing');
         
         try {
-            const bizRef = this.db.collection('business').doc(id);
+            const bizRef = this.db.collection('shared_business').doc(id);
             const snap = await bizRef.get();
 
             if (snap.exists) {
@@ -91,7 +92,7 @@ class CloudSync {
                 }
             } else {
                 // Create new Business Account with this PIN
-                if (confirm(`Create new Business ID: "${id}" with PIN: "${pin}"?`)) {
+                if (confirm(`Create new Shared Business: "${id}"?\n\nPIN will be: ${pin}\n\nMake sure your brother uses the same ID and PIN.`)) {
                     await bizRef.set({
                         pin: pin,
                         owner: this.user.email,
@@ -107,10 +108,11 @@ class CloudSync {
             localStorage.setItem('nutritionBusinessPin', pin);
             this.businessId = id;
             this.businessPin = pin;
-            alert('✅ Secure Business ID Set! Syncing data...');
+            alert('✅ Secure Sharing Active! Syncing data...');
             this.pullFromCloud();
         } catch (e) {
-            alert('Error securing business ID: ' + e.message);
+            console.error(e);
+            alert('❌ PERMISSION ERROR\n\nPlease check your Firebase Console rules. Shared access is currently blocked by your database settings.');
             this.setStatus('error');
         }
     }
@@ -175,7 +177,7 @@ class CloudSync {
 
         try {
             this.setStatus('syncing');
-            const storagePath = this.businessId ? this.db.collection('business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
+            const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
             await storagePath.collection('data').doc(docName).set({
                 data: JSON.parse(raw),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -192,7 +194,7 @@ class CloudSync {
         this.setStatus('syncing');
         let pulledAny = false;
         try {
-            const storagePath = this.businessId ? this.db.collection('business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
+            const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
             for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
                 const snap = await storagePath.collection('data').doc(docName).get();
                 if (!snap.exists) continue;
@@ -217,7 +219,7 @@ class CloudSync {
         if (!confirm('Overwrite local with Cloud?')) return;
         this.setStatus('syncing');
         try {
-            const storagePath = this.businessId ? this.db.collection('business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
+            const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
             for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
                 const snap = await storagePath.collection('data').doc(docName).get();
                 if (snap.exists) localStorage.setItem(localKey, JSON.stringify(snap.data().data));
@@ -229,12 +231,21 @@ class CloudSync {
     }
 
     reloadAllManagers() {
-        [window.tracker, window.customerManager, window.inventoryManager].forEach(m => {
-            if (m && m.loadStockData) { m.stockData = m.loadStockData(); m.renderCurrentStock(); }
-            if (m && m.loadCustomers) { m.customers = m.loadCustomers(); m.renderCustomers(); }
-            if (m && m.renderExpenses) m.renderExpenses();
-            if (m && m.renderAllCompositions) m.renderAllCompositions();
-        });
+        if (window.tracker) {
+            const raw = localStorage.getItem('nutritionExpenses');
+            if (raw) tracker.expenses = JSON.parse(raw);
+            tracker.renderExpenses(); tracker.updateStats(); tracker.updateCharts();
+        }
+        if (window.customerManager) {
+            const rawC = localStorage.getItem('nutritionCustomers');
+            if (rawC) customerManager.customers = JSON.parse(rawC);
+            customerManager.renderCustomers(); customerManager.renderAllCompositions();
+        }
+        if (window.inventoryManager) {
+            const rawS = localStorage.getItem('inventoryStock');
+            if (rawS) inventoryManager.stockData = JSON.parse(rawS);
+            inventoryManager.renderCurrentStock();
+        }
         if (window.dashboardManager) window.dashboardManager.refreshDashboard();
     }
 
@@ -245,7 +256,7 @@ class CloudSync {
         style.textContent = `.cloud-sync-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; margin-right: 8px; }
             .cloud-sync-dot .dot { width: 10px; height: 10px; border-radius: 50%; background: #999; }
             .cloud-sync-dot .dot.synced { background: #22c55e; }
-            .cloud-sync-dot .dot.syncing { background: #eab308; animation: pulse 1s infinite; }
+            .cloud-sync-dot .dot.syncing { background: #eab308; animation: pulse-dot 1s infinite; }
             .cloud-sync-dot .dot.error { background: #ef4444; }
             .sync-actions button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; width: 100%; text-align: left; margin-bottom: 5px; }`;
         document.head.appendChild(style);
@@ -280,13 +291,17 @@ class CloudSync {
                 <small style="display:block; margin-top:8px; color:#666;">${this.businessId ? '✅ Secured by PIN' : '⚠️ Private Mode'}</small>
             </div>
             <div class="sync-actions">
-                <button style="background:#4f46e5; color:white;" onclick="cloudSync.pullFromCloud()">🔄 Sync Now</button>
-                <button style="background:#eee;" onclick="cloudSync.signOut()">Sign Out</button>
+                <button style="background:#4f46e5; color:white;" id="manualSyncBtn">🔄 Sync Now</button>
+                <button style="background:#eee;" id="signOutBtn">Sign Out</button>
             </div>
             <div id="syncLastTime" style="font-size:0.7rem; text-align:center; margin-top:5px;"></div>`;
+            
             document.getElementById('btnSetBiz').onclick = () => this.setBusinessId(document.getElementById('bizId').value, document.getElementById('bizPin').value);
+            document.getElementById('manualSyncBtn').onclick = () => this.pullFromCloud();
+            document.getElementById('signOutBtn').onclick = () => this.signOut();
         } else {
-            area.innerHTML = `<button style="background:#4285f4; color:white; width:100%; padding:12px; border:none; border-radius:8px;" onclick="cloudSync.signIn()">Sign in with Google</button>`;
+            area.innerHTML = `<button style="background:#4285f4; color:white; width:100%; padding:12px; border:none; border-radius:8px;" id="signInBtn">Sign in with Google</button>`;
+            document.getElementById('signInBtn').onclick = () => this.signIn();
         }
     }
 
