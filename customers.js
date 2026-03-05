@@ -549,15 +549,84 @@ class CustomerManager {
 
     renderComposition() {
         const tbody = document.getElementById('compTableBody');
+        const summaryDiv = document.getElementById('compWeeklySummary');
         if (!tbody) return;
 
         const records = this.composition[this.currentCompCustomerId] || [];
         if (records.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">No records yet.</td></tr>';
+            if (summaryDiv) summaryDiv.innerHTML = '';
             return;
         }
 
-        tbody.innerHTML = records.map(r => {
+        // Calculate differences for the top 2 records
+        let summaryHTML = '';
+        let diffRowHTML = '';
+
+        if (records.length >= 2) {
+            const latest = records[0];
+            const prev = records[1];
+
+            const diff = (val1, val2, precision = 2) => (val1 - val2).toFixed(precision);
+            
+            // KG Calculations
+            const lFatKg = (latest.weight * latest.fat / 100);
+            const pFatKg = (prev.weight * prev.fat / 100);
+            const lSubcutKg = (latest.weight * latest.subcut / 100);
+            const pSubcutKg = (prev.weight * prev.subcut / 100);
+            const lMuscleKg = (latest.weight * latest.muscle / 100);
+            const pMuscleKg = (prev.weight * prev.muscle / 100);
+
+            const wDiff = diff(latest.weight, prev.weight, 1);
+            const fDiff = diff(lFatKg, pFatKg);
+            const mDiff = diff(lMuscleKg, pMuscleKg);
+            const vfDiff = diff(lFatKg - lSubcutKg, pFatKg - pSubcutKg);
+
+            const getIcon = (val, reverse = false) => {
+                const isGood = reverse ? val > 0 : val < 0;
+                const color = val === 0 ? 'gray' : (isGood ? '#50c878' : '#e74c3c');
+                const arrow = val > 0 ? '▲' : (val < 0 ? '▼' : '—');
+                return `<span style="color:${color}; font-weight:bold;">${arrow} ${Math.abs(val)}</span>`;
+            };
+
+            summaryHTML = `
+                <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #4a90e2; text-align:center;">
+                    <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Weight</div>
+                    <div style="font-weight:bold;">${getIcon(wDiff)}</div>
+                </div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #e74c3c; text-align:center;">
+                    <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Fat Loss</div>
+                    <div style="font-weight:bold;">${getIcon(fDiff)}</div>
+                </div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #50c878; text-align:center;">
+                    <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Muscle Gain</div>
+                    <div style="font-weight:bold;">${getIcon(mDiff, true)}</div>
+                </div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #f39c12; text-align:center;">
+                    <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Visceral</div>
+                    <div style="font-weight:bold;">${getIcon(vfDiff)}</div>
+                </div>
+            `;
+
+            diffRowHTML = `
+                <tr style="background:rgba(74, 144, 226, 0.1); font-size:0.85rem;">
+                    <td style="font-weight:bold; color:#4a90e2;">Weekly Change</td>
+                    <td>${getIcon(wDiff)}</td>
+                    <td>${getIcon(fDiff)}</td>
+                    <td>${getIcon(vfDiff)}</td>
+                    <td>${diff(latest.bmr, prev.bmr, 0)}</td>
+                    <td>${diff(latest.bmi, prev.bmi, 1)}</td>
+                    <td>${diff(latest.bodyAge, prev.bodyAge, 0)}</td>
+                    <td>${getIcon(diff(lSubcutKg, pSubcutKg))}</td>
+                    <td>${getIcon(mDiff, true)}</td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        if (summaryDiv) summaryDiv.innerHTML = summaryHTML;
+
+        const mainRows = records.map(r => {
             // Calculate KG on the fly for history
             const fatKg = (r.weight * r.fat / 100).toFixed(2);
             const subcutKg = (r.weight * r.subcut / 100).toFixed(2);
@@ -589,6 +658,8 @@ class CustomerManager {
                 </tr>
             `;
         }).join('');
+
+        tbody.innerHTML = diffRowHTML + mainRows;
     }
 
     deleteCompRecord(recordId) {
