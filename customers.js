@@ -47,8 +47,8 @@ class CustomerManager {
         // Composition search
         document.getElementById('compSearch')?.addEventListener('input', () => this.renderAllCompositions());
 
-        // Customer sub-tabs
-        document.querySelectorAll('.cust-tab-btn').forEach(btn => {
+        // Attendance sub-tabs
+        document.getElementById('attendanceTabsContainer')?.querySelectorAll('.cust-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const targetBtn = e.target.closest('.cust-tab-btn');
                 const tabName = targetBtn.dataset.custTab;
@@ -152,10 +152,14 @@ class CustomerManager {
 
     // ---- Customer Sub-tabs ----
     switchCustomerTab(tabName) {
-        document.querySelectorAll('.cust-tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.cust-tab-content').forEach(content => content.classList.remove('active'));
+        // Only target sub-tabs within the attendance section
+        const container = document.getElementById('attendanceSection');
+        if (!container) return;
 
-        document.querySelector(`[data-cust-tab="${tabName}"]`)?.classList.add('active');
+        container.querySelectorAll('.cust-tab-btn').forEach(btn => btn.classList.remove('active'));
+        container.querySelectorAll('.cust-tab-content').forEach(content => content.classList.remove('active'));
+
+        container.querySelector(`[data-cust-tab="${tabName}"]`)?.classList.add('active');
         document.getElementById(`${tabName}CustTab`)?.classList.add('active');
 
         if (tabName === 'attendanceGrid') {
