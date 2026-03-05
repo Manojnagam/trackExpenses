@@ -1,14 +1,14 @@
-const CACHE_NAME = 'nutrition-mgr-v1.2';
+const CACHE_NAME = 'nutrition-mgr-v1.3';
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
-    './app.js?v=1.2',
-    './inventory.js?v=1.2',
-    './customers.js?v=1.2',
-    './dashboard.js?v=1.2',
-    './insights.js?v=1.2',
-    './firebase-sync.js?v=1.2',
+    './app.js?v=1.3',
+    './inventory.js?v=1.3',
+    './customers.js?v=1.3',
+    './dashboard.js?v=1.3',
+    './insights.js?v=1.3',
+    './firebase-sync.js?v=1.3',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
@@ -36,23 +36,39 @@ self.addEventListener('activate', (event) => {
                         return caches.delete(cache);
                     }
                 })
-            );
+            ).then(() => self.clients.claim());
         })
     );
 });
 
-// Fetch Strategy: Stale-While-Revalidate
+// Fetch Strategy: Network-First for local scripts, Stale-While-Revalidate for others
 self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        caches.match(event.request)
-            .then((response) => {
-                const fetchPromise = fetch(event.request).then((networkResponse) => {
-                    caches.open(CACHE_NAME).then((cache) => {
+    const url = new URL(event.request.url);
+    const isLocalScript = url.pathname.endsWith('.js') || url.pathname.endsWith('.html') || url.pathname.endsWith('.css');
+
+    if (isLocalScript) {
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    return caches.open(CACHE_NAME).then((cache) => {
                         cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
                     });
-                    return networkResponse;
-                });
-                return response || fetchPromise;
-            })
-    );
+                })
+                .catch(() => caches.match(event.request))
+        );
+    } else {
+        event.respondWith(
+            caches.match(event.request)
+                .then((response) => {
+                    const fetchPromise = fetch(event.request).then((networkResponse) => {
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, networkResponse.clone());
+                        });
+                        return networkResponse;
+                    });
+                    return response || fetchPromise;
+                })
+        );
+    }
 });

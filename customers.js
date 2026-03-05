@@ -392,8 +392,8 @@ class CustomerManager {
                         ` : '<p>Start tracking by clicking below.</p>'}
                     </div>
                     <div class="customer-card-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">View Details</button>
-                        <button class="btn btn-primary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">Add Entry</button>
+                        <button class="btn btn-secondary btn-sm" onclick="window.customerManager.quickAddComp('${customer.id}')">View Details v1.3</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.customerManager.quickAddComp('${customer.id}')">Add Entry v1.3</button>
                     </div>
                 </div>
             `;
@@ -406,17 +406,21 @@ class CustomerManager {
 
     viewComposition(id) {
         console.log('viewComposition called with id:', id);
-        // Added window.alert to be 100% sure it's hit on mobile
-        window.alert('Opening composition for ID: ' + id);
+        window.alert('✅ Button Clicked! ID: ' + id);
         
-        const customer = this.customers.find(c => String(c.id) === String(id));
-        if (!customer) {
-            console.error('Customer not found for id:', id);
-            window.alert('Error: Customer not found for ID: ' + id);
+        if (!this.customers || this.customers.length === 0) {
+            window.alert('❌ Error: Customers list is empty!');
             return;
         }
 
-        window.alert('Found customer: ' + customer.name);
+        const customer = this.customers.find(c => String(c.id) === String(id));
+        if (!customer) {
+            console.error('Customer not found for id:', id);
+            window.alert('❌ Error: Customer with ID [' + id + '] not found in our list of ' + this.customers.length + ' customers.');
+            return;
+        }
+
+        window.alert('🎉 Found customer: ' + customer.name + '\nOpening modal now...');
         this.currentCompCustomerId = customer.id;
         document.getElementById('compCustomerName').textContent = `Body Composition: ${customer.name}`;
         document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
