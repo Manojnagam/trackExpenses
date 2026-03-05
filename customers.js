@@ -27,6 +27,16 @@ class CustomerManager {
         document.getElementById('customerSearch')?.addEventListener('input', () => this.renderCustomers());
         document.getElementById('customerPlanFilter')?.addEventListener('change', () => this.renderCustomers());
         
+        // Auto-set pack duration
+        document.getElementById('customerPlan')?.addEventListener('change', (e) => {
+            const plan = e.target.value;
+            const durationInput = document.getElementById('customerPackDuration');
+            if (plan === 'premium-30') durationInput.value = 30;
+            else if (plan === 'standard-26') durationInput.value = 26;
+            else if (plan === 'hot-drink-30') durationInput.value = 30;
+            else if (plan === 'trial-3') durationInput.value = 3;
+        });
+
         // Composition search
         document.getElementById('compSearch')?.addEventListener('input', () => this.renderAllCompositions());
 
@@ -548,8 +558,20 @@ class CustomerManager {
                 </span>`;
             }
 
-            const planLabels = { 'weight-gain': 'Weight Gain', 'weight-loss': 'Weight Loss', 'general': 'General' };
-            const planColors = { 'weight-gain': '#50c878', 'weight-loss': '#e74c3c', 'general': '#4a90e2' };
+            const planLabels = { 
+                'premium-30': 'Premium 30D', 
+                'standard-26': 'Standard 26D', 
+                'hot-drink-30': 'Hot Drink 30D',
+                'trial-3': '3-Day Trial',
+                'general': 'General'
+            };
+            const planColors = { 
+                'premium-30': '#667eea', 
+                'standard-26': '#50c878', 
+                'hot-drink-30': '#f39c12',
+                'trial-3': '#e74c3c',
+                'general': '#4a90e2'
+            };
 
             return `
                 <div class="customer-card">

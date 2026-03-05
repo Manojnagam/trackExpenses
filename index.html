@@ -607,11 +607,13 @@
                                 <input type="number" id="customerPackDuration" value="30" placeholder="e.g. 30">
                             </div>
                             <div class="form-group">
-                                <label for="customerPlan">Plan</label>
+                                <label for="customerPlan">Plan / Pack</label>
                                 <select id="customerPlan" required>
-                                    <option value="weight-gain">Weight Gain</option>
-                                    <option value="weight-loss">Weight Loss</option>
-                                    <option value="general">General</option>
+                                    <option value="premium-30">Premium 30-Day (Shake+Hot) - ₹6969</option>
+                                    <option value="standard-26">Standard 26-Day (Shake+Hot) - ₹5600</option>
+                                    <option value="hot-drink-30">Monthly Hot Drink - ₹800</option>
+                                    <option value="trial-3">3-Day Trial Pack - ₹900</option>
+                                    <option value="general">General / Other</option>
                                 </select>
                             </div>
                         </div>
@@ -633,8 +635,10 @@
                         <input type="text" id="customerSearch" placeholder="Search by name or phone..." class="search-input">
                         <select id="customerPlanFilter" class="filter-select">
                             <option value="">All Plans</option>
-                            <option value="weight-gain">Weight Gain</option>
-                            <option value="weight-loss">Weight Loss</option>
+                            <option value="premium-30">Premium 30-Day</option>
+                            <option value="standard-26">Standard 26-Day</option>
+                            <option value="hot-drink-30">Hot Drink 30-Day</option>
+                            <option value="trial-3">3-Day Trial</option>
                             <option value="general">General</option>
                         </select>
                     </div>
