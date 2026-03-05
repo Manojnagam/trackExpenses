@@ -1,6 +1,23 @@
 // ============================================================
 // Customer Database & Attendance Tracking
 // ============================================================
+window.alert('📥 customers.js LOADED v1.4');
+
+// GLOBAL DEBUG MONITOR
+window.addEventListener('error', function(e) {
+    window.alert('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
+});
+
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('button');
+    if (target) {
+        const text = target.textContent || '';
+        if (text.includes('v1.3') || text.includes('Composition')) {
+            window.alert('🖱️ RAW CLICK DETECTED\nText: ' + text + '\nID: ' + target.getAttribute('data-id'));
+        }
+    }
+}, true);
+
 class CustomerManager {
     constructor() {
         window.customerManager = this;
@@ -1266,21 +1283,3 @@ class CustomerManager {
         }
     }
 }
-
-// GLOBAL DEBUG MONITOR
-window.addEventListener('error', function(e) {
-    window.alert('🔴 SYSTEM ERROR: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno);
-});
-
-document.addEventListener('click', function(e) {
-    const target = e.target.closest('button');
-    if (target) {
-        console.log('Button clicked:', target.textContent, 'onclick:', target.getAttribute('onclick'));
-        if (target.textContent.includes('v1.3')) {
-            window.alert('🖱️ Raw Click Detected on: ' + target.textContent);
-            if (!window.customerManager) {
-                window.alert('❌ CRITICAL: window.customerManager is MISSING!');
-            }
-        }
-    }
-}, true);
