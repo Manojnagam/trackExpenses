@@ -1,14 +1,14 @@
-const CACHE_NAME = 'nutrition-mgr-v1.9';
+const CACHE_NAME = 'nutrition-mgr-v2.0';
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
-    './app.js?v=1.9',
-    './inventory.js?v=1.9',
-    './customers.js?v=1.9',
-    './dashboard.js?v=1.9',
-    './insights.js?v=1.9',
-    './firebase-sync.js?v=1.9',
+    './app.js?v=2.0',
+    './inventory.js?v=2.0',
+    './customers.js?v=2.0',
+    './dashboard.js?v=2.0',
+    './insights.js?v=2.0',
+    './firebase-sync.js?v=2.0',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];

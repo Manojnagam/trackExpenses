@@ -319,6 +319,7 @@ class CustomerManager {
         const address = document.getElementById('customerAddress')?.value.trim() || '';
         const packStart = document.getElementById('customerPackStart')?.value || '';
         const packDuration = parseInt(document.getElementById('customerPackDuration')?.value || '30');
+        const goal = document.getElementById('customerGoal').value;
         const plan = document.getElementById('customerPlan').value;
         const joinDate = document.getElementById('customerJoinDate').value;
         const notes = document.getElementById('customerNotes').value.trim();
@@ -331,7 +332,7 @@ class CustomerManager {
             if (index !== -1) {
                 this.customers[index] = { 
                     ...this.customers[index], 
-                    name, phone, referredBy, age, gender, height, address, packStart, packDuration, plan, joinDate, notes 
+                    name, phone, referredBy, age, gender, height, address, packStart, packDuration, goal, plan, joinDate, notes 
                 };
             }
             this.cancelCustomerEdit();
@@ -347,6 +348,7 @@ class CustomerManager {
                 address,
                 packStart,
                 packDuration,
+                goal,
                 plan,
                 joinDate,
                 notes,
@@ -379,6 +381,7 @@ class CustomerManager {
         if (document.getElementById('customerAddress')) document.getElementById('customerAddress').value = customer.address || '';
         if (document.getElementById('customerPackStart')) document.getElementById('customerPackStart').value = customer.packStart || '';
         if (document.getElementById('customerPackDuration')) document.getElementById('customerPackDuration').value = customer.packDuration || 30;
+        if (document.getElementById('customerGoal')) document.getElementById('customerGoal').value = customer.goal || 'wellness';
         document.getElementById('customerPlan').value = customer.plan;
         document.getElementById('customerJoinDate').value = customer.joinDate || '';
         document.getElementById('customerNotes').value = customer.notes || '';
@@ -559,6 +562,9 @@ class CustomerManager {
         const summaryDiv = document.getElementById('compWeeklySummary');
         if (!tbody) return;
 
+        const customer = this.customers.find(c => c.id === this.currentCompCustomerId);
+        const goal = customer?.goal || 'wellness';
+
         const records = this.composition[this.currentCompCustomerId] || [];
         if (records.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">No records yet.</td></tr>';
@@ -589,43 +595,53 @@ class CustomerManager {
             const mDiff = diff(lMuscleKg, pMuscleKg);
             const vfDiff = diff(lFatKg - lSubcutKg, pFatKg - pSubcutKg);
 
-            const getIcon = (val, reverse = false) => {
-                const isGood = reverse ? val > 0 : val < 0;
-                const color = val === 0 ? 'gray' : (isGood ? '#50c878' : '#e74c3c');
-                const arrow = val > 0 ? '▲' : (val < 0 ? '▼' : '—');
-                return `<span style="color:${color}; font-weight:bold;">${arrow} ${Math.abs(val)}</span>`;
+            const getIcon = (val, type) => {
+                let isGood = false;
+                const numVal = parseFloat(val);
+                if (type === 'weight') {
+                    if (goal === 'weight-gain') isGood = numVal > 0;
+                    else isGood = numVal < 0;
+                } else if (type === 'muscle') {
+                    isGood = numVal > 0;
+                } else {
+                    // fat, vf, subcut
+                    isGood = numVal < 0;
+                }
+                const color = numVal === 0 ? 'gray' : (isGood ? '#50c878' : '#e74c3c');
+                const arrow = numVal > 0 ? '▲' : (numVal < 0 ? '▼' : '—');
+                return `<span style="color:${color}; font-weight:bold;">${arrow} ${Math.abs(numVal)}</span>`;
             };
 
             summaryHTML = `
                 <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #4a90e2; text-align:center;">
                     <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Weight</div>
-                    <div style="font-weight:bold;">${getIcon(wDiff)}</div>
+                    <div style="font-weight:bold;">${getIcon(wDiff, 'weight')}</div>
                 </div>
                 <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #e74c3c; text-align:center;">
                     <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Fat Loss</div>
-                    <div style="font-weight:bold;">${getIcon(fDiff)}</div>
+                    <div style="font-weight:bold;">${getIcon(fDiff, 'fat')}</div>
                 </div>
                 <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #50c878; text-align:center;">
                     <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Muscle Gain</div>
-                    <div style="font-weight:bold;">${getIcon(mDiff, true)}</div>
+                    <div style="font-weight:bold;">${getIcon(mDiff, 'muscle')}</div>
                 </div>
                 <div style="background:#f8f9fa; padding:10px; border-radius:8px; border-left:4px solid #f39c12; text-align:center;">
                     <div style="font-size:0.7rem; color:gray; text-transform:uppercase;">Visceral</div>
-                    <div style="font-weight:bold;">${getIcon(vfDiff)}</div>
+                    <div style="font-weight:bold;">${getIcon(vfDiff, 'vf')}</div>
                 </div>
             `;
 
             diffRowHTML = `
                 <tr style="background:rgba(74, 144, 226, 0.1); font-size:0.85rem; border-top: 2px solid #4a90e2;">
-                    <td style="font-weight:bold; color:#4a90e2;">Latest Change</td>
-                    <td>${getIcon(wDiff)}</td>
-                    <td>${getIcon(fDiff)}</td>
-                    <td>${getIcon(vfDiff)}</td>
+                    <td style="font-weight:bold; color:#4a90e2;">Latest Change (${goal === 'weight-gain' ? 'Gain' : 'Loss'} Mode)</td>
+                    <td>${getIcon(wDiff, 'weight')}</td>
+                    <td>${getIcon(fDiff, 'fat')}</td>
+                    <td>${getIcon(vfDiff, 'vf')}</td>
                     <td>${diff(latest.bmr, prev.bmr, 0)}</td>
                     <td>${diff(latest.bmi, prev.bmi, 1)}</td>
                     <td>${diff(latest.bodyAge, prev.bodyAge, 0)}</td>
-                    <td>${getIcon(diff(lSubcutKg, pSubcutKg))}</td>
-                    <td>${getIcon(mDiff, true)}</td>
+                    <td>${getIcon(diff(lSubcutKg, pSubcutKg), 'subcut')}</td>
+                    <td>${getIcon(mDiff, 'muscle')}</td>
                     <td></td>
                 </tr>
             `;

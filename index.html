@@ -607,6 +607,14 @@
                                 <input type="number" id="customerPackDuration" value="30" placeholder="e.g. 30">
                             </div>
                             <div class="form-group">
+                                <label for="customerGoal">Goal</label>
+                                <select id="customerGoal">
+                                    <option value="weight-loss">Weight Loss</option>
+                                    <option value="weight-gain">Weight Gain</option>
+                                    <option value="wellness">Wellness / Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label for="customerPlan">Plan / Pack</label>
                                 <select id="customerPlan">
                                     <option value="">-- Select Plan (Optional) --</option>
@@ -909,10 +917,6 @@
                         <button class="btn btn-whatsapp" id="whatsappCompBtn" style="width:auto;">📱 Share Progress</button>
                     </div>
 
-                    <!-- Weekly Progress Highlights -->
-                    <div id="compWeeklySummary" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:20px;">
-                    </div>
-
                     <div class="attendance-table-wrapper">
                         <table class="pl-table" id="compTable">
                             <thead>
@@ -932,20 +936,24 @@
                             <tbody id="compTableBody"></tbody>
                         </table>
                     </div>
+
+                    <!-- Weekly Progress Highlights (Moved to bottom) -->
+                    <div id="compWeeklySummary" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-top:20px;">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=1.9"></script>
-    <script src="inventory.js?v=1.9"></script>
-    <script src="customers.js?v=1.9"></script>
-    <script src="dashboard.js?v=1.9"></script>
-    <script src="insights.js?v=1.9"></script>
+    <script src="app.js?v=2.0"></script>
+    <script src="inventory.js?v=2.0"></script>
+    <script src="customers.js?v=2.0"></script>
+    <script src="dashboard.js?v=2.0"></script>
+    <script src="insights.js?v=2.0"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=1.9"></script>
+    <script src="firebase-sync.js?v=2.0"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
