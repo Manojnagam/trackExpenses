@@ -72,6 +72,14 @@ class CustomerManager {
             else if (action === 'viewComposition') this.viewComposition(id);
         });
 
+        // Event delegation for all compositions list
+        document.getElementById('allCompositionsList')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const { action, id } = btn.dataset;
+            if (action === 'viewComposition') this.viewComposition(id);
+        });
+
         // Event delegation for attendance grid
         document.getElementById('attendanceGrid')?.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action]');
@@ -421,17 +429,19 @@ class CustomerManager {
         e.preventDefault();
         if (!this.currentCompCustomerId) return;
 
+        const dateVal = document.getElementById('compDate').value || new Date().toISOString().split('T')[0];
+        
         const record = {
             id: generateId(),
-            date: document.getElementById('compDate').value,
-            weight: parseFloat(document.getElementById('compWeight').value),
-            fat: parseFloat(document.getElementById('compFat').value),
-            visceral: parseFloat(document.getElementById('compVisceral').value),
-            bmr: parseInt(document.getElementById('compBMR').value),
-            bmi: parseFloat(document.getElementById('compBMI').value),
-            bodyAge: parseInt(document.getElementById('compBodyAge').value),
-            subcut: parseFloat(document.getElementById('compSubcut').value),
-            muscle: parseFloat(document.getElementById('compMuscle').value)
+            date: dateVal,
+            weight: parseFloat(document.getElementById('compWeight').value) || 0,
+            fat: parseFloat(document.getElementById('compFat').value) || 0,
+            visceral: parseFloat(document.getElementById('compVisceral').value) || 0,
+            bmr: parseInt(document.getElementById('compBMR').value) || 0,
+            bmi: parseFloat(document.getElementById('compBMI').value) || 0,
+            bodyAge: parseInt(document.getElementById('compBodyAge').value) || 0,
+            subcut: parseFloat(document.getElementById('compSubcut').value) || 0,
+            muscle: parseFloat(document.getElementById('compMuscle').value) || 0
         };
 
         if (!this.composition[this.currentCompCustomerId]) {
