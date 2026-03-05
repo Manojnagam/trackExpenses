@@ -69,7 +69,6 @@ class CustomerManager {
             if (action === 'editCustomer') this.editCustomer(id);
             else if (action === 'deleteCustomer') this.deleteCustomer(id);
             else if (action === 'whatsappCustomer') this.sendCustomerMessage(id);
-            else if (action === 'viewComposition') this.viewComposition(id);
         });
 
         // Event delegation for all compositions list
@@ -77,7 +76,6 @@ class CustomerManager {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
             const { action, id } = btn.dataset;
-            if (action === 'viewComposition') this.viewComposition(id);
         });
 
         // Event delegation for attendance grid
@@ -395,7 +393,7 @@ class CustomerManager {
                         ` : '<p>Start tracking by clicking below.</p>'}
                     </div>
                     <div class="customer-card-actions">
-                        <button class="btn btn-secondary btn-sm" data-action="viewComposition" data-id="${customer.id}">View Details</button>
+                        <button class="btn btn-secondary btn-sm" onclick="customerManager.viewComposition('${customer.id}')">View Details</button>
                         <button class="btn btn-primary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">Add Entry</button>
                     </div>
                 </div>
@@ -603,7 +601,7 @@ class CustomerManager {
                     ${c.address ? `<div class="customer-notes">Addr: ${escapeHtml(c.address)}</div>` : ''}
                     ${c.notes ? `<div class="customer-notes">${escapeHtml(c.notes)}</div>` : ''}
                     <div class="customer-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <button class="btn btn-info" style="background:#17a2b8; color:white;" data-action="viewComposition" data-id="${c.id}">📊 Composition</button>
+                        <button class="btn btn-info" style="background:#17a2b8; color:white;" onclick="customerManager.viewComposition('${c.id}')">📊 Composition</button>
                         <button class="btn btn-whatsapp" data-action="whatsappCustomer" data-id="${c.id}">📱 WhatsApp</button>
                         <button class="btn btn-edit" data-action="editCustomer" data-id="${c.id}">Edit</button>
                         <button class="btn btn-delete" data-action="deleteCustomer" data-id="${c.id}">Delete</button>
