@@ -1,4 +1,5 @@
-// Firebase Cloud Sync - Cross-Device Data Sync (Secure v2.6)
+// Firebase Cloud Sync - Cross-Device Data Sync (Secure v2.7)
+const APP_VERSION = "2.7";
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDizRy1Oti70AFkJzrDQU8fdugvXWgHACQ",
     authDomain: "trackexpenses-6673a.firebaseapp.com",
@@ -83,7 +84,6 @@ class CloudSync {
             const snap = await bizRef.get();
 
             if (snap.exists) {
-                // Check PIN
                 const data = snap.data();
                 if (data.pin !== pin) {
                     alert('❌ Incorrect PIN for this Business ID. Access Denied.');
@@ -91,8 +91,7 @@ class CloudSync {
                     return;
                 }
             } else {
-                // Create new Business Account with this PIN
-                if (confirm(`Create new Shared Business: "${id}"?\n\nPIN will be: ${pin}\n\nMake sure your brother uses the same ID and PIN.`)) {
+                if (confirm(`Create new Shared Business: "${id}"?\n\nPIN will be: ${pin}`)) {
                     await bizRef.set({
                         pin: pin,
                         owner: this.user.email,
@@ -108,11 +107,28 @@ class CloudSync {
             localStorage.setItem('nutritionBusinessPin', pin);
             this.businessId = id;
             this.businessPin = pin;
-            alert('✅ Secure Sharing Active! Syncing data...');
-            this.pullFromCloud();
+            
+            // Check if we should push current data or pull from cloud
+            const customers = localStorage.getItem('nutritionCustomers');
+            const hasData = customers && customers !== '[]' && customers !== 'null';
+
+            if (hasData) {
+                if (confirm('Data Found on Phone!\n\nDo you want to UPLOAD your local data to the Cloud? \n\n(Click OK if this is the Main Phone. Click CANCEL if you want to DOWNLOAD data from your brother)')) {
+                    await this.pushAll();
+                    alert('✅ Data Uploaded! Now other devices can see it.');
+                } else {
+                    await this.pullFromCloud();
+                    alert('✅ Cloud Data Downloaded!');
+                }
+            } else {
+                await this.pullFromCloud();
+                alert('✅ Cloud Data Downloaded!');
+            }
+            
+            this.updateAuthUI();
         } catch (e) {
             console.error(e);
-            alert('❌ PERMISSION ERROR\n\nPlease check your Firebase Console rules. Shared access is currently blocked by your database settings.');
+            alert('❌ PERMISSION ERROR\n\nPlease check your Firebase Console rules. The database is blocking access.');
             this.setStatus('error');
         }
     }
@@ -189,6 +205,13 @@ class CloudSync {
         } catch (e) { this.setStatus('error'); }
     }
 
+    async pushAll() {
+        if (!this.user || !this.db) return;
+        for (const localKey of Object.keys(SYNC_COLLECTIONS)) {
+            await this.pushToCloud(localKey);
+        }
+    }
+
     async pullFromCloud() {
         if (!this.user || !this.db) return;
         this.setStatus('syncing');
@@ -201,7 +224,12 @@ class CloudSync {
                 const cloud = snap.data();
                 const cloudTs = cloud.updatedAt ? cloud.updatedAt.toMillis() : 0;
                 const localTs = parseInt(localStorage.getItem('cloudSync_ts_' + localKey) || '0');
-                if (cloudTs > localTs) {
+                
+                // If local is empty, always pull. Otherwise compare timestamps.
+                const localData = localStorage.getItem(localKey);
+                const isLocalEmpty = !localData || localData === '[]' || localData === '{}';
+
+                if (isLocalEmpty || cloudTs > localTs) {
                     localStorage.setItem(localKey, JSON.stringify(cloud.data));
                     localStorage.setItem('cloudSync_ts_' + localKey, cloudTs.toString());
                     pulledAny = true;
@@ -212,22 +240,6 @@ class CloudSync {
             this.setStatus('synced');
             this.updateLastSyncUI();
         } catch (e) { this.setStatus('error'); }
-    }
-
-    async restoreFromCloud() {
-        if (!this.user || !this.db) return;
-        if (!confirm('Overwrite local with Cloud?')) return;
-        this.setStatus('syncing');
-        try {
-            const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
-            for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
-                const snap = await storagePath.collection('data').doc(docName).get();
-                if (snap.exists) localStorage.setItem(localKey, JSON.stringify(snap.data().data));
-            }
-            this.reloadAllManagers();
-            this.setStatus('synced');
-            alert('Cloud Restore Complete!');
-        } catch (e) { alert('Restore failed'); }
     }
 
     reloadAllManagers() {
@@ -280,15 +292,16 @@ class CloudSync {
         const area = document.getElementById('syncAuthArea');
         if (!area) return;
         if (this.user) {
-            area.innerHTML = `<div style="padding:10px; background:#f5f5f5; border-radius:8px; margin-bottom:10px;">
-                <strong>${this.user.displayName}</strong><br><small>${this.user.email}</small>
+            area.innerHTML = `<div style="padding:10px; background:#f5f5f5; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div><strong>${this.user.displayName}</strong><br><small>${this.user.email}</small></div>
+                <div style="font-size:0.7rem; color:#999; text-align:right;">v${APP_VERSION}</div>
             </div>
             <div style="margin-bottom:15px; padding:15px; background:rgba(74, 144, 226, 0.1); border-radius:8px; border:1px solid #4a90e2;">
                 <label style="display:block; font-size:0.8rem; font-weight:bold; margin-bottom:8px; color:#4a90e2;">Secure Business ID</label>
                 <input type="text" id="bizId" value="${this.businessId || ''}" placeholder="Unique ID" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
                 <input type="password" id="bizPin" value="${this.businessPin || ''}" placeholder="Safety PIN (4-6 digits)" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
                 <button id="btnSetBiz" style="background:#4a90e2; color:white; border:none; padding:10px; width:100%; border-radius:4px; font-weight:bold;">ACTIVATE SYNC</button>
-                <small style="display:block; margin-top:8px; color:#666;">${this.businessId ? '✅ Secured by PIN' : '⚠️ Private Mode'}</small>
+                <small style="display:block; margin-top:8px; color:#666;">${this.businessId ? '✅ Currently Sharing' : '⚠️ Private Mode'}</small>
             </div>
             <div class="sync-actions">
                 <button style="background:#4f46e5; color:white;" id="manualSyncBtn">🔄 Sync Now</button>
