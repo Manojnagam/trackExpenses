@@ -266,11 +266,12 @@ class CustomerManager {
         const gender = document.getElementById('customerGender')?.value || 'male';
         const height = document.getElementById('customerHeight')?.value || '';
         const address = document.getElementById('customerAddress')?.value.trim() || '';
-        const packStart = document.getElementById('customerPackStart')?.value || '';
+        const todayStr = new Date().toISOString().split('T')[0];
+        const packStart = document.getElementById('customerPackStart')?.value || todayStr;
         const packDuration = parseInt(document.getElementById('customerPackDuration')?.value || '30');
         const goal = document.getElementById('customerGoal').value;
         const plan = document.getElementById('customerPlan').value;
-        const joinDate = document.getElementById('customerJoinDate').value;
+        const joinDate = document.getElementById('customerJoinDate')?.value || todayStr;
         const notes = document.getElementById('customerNotes').value.trim();
 
         // Allowing all fields to be optional as requested
@@ -1250,17 +1251,19 @@ class CustomerManager {
 
     // ---- Daily Check-in & Pack Status ----
     getPackStatus(customer) {
-        if (!customer.packStart || !customer.packDuration) return null;
+        // If they have no duration, we can't calculate "left"
+        if (!customer.packDuration) return null;
 
-        const packStartStr = customer.packStart; // e.g., "2023-10-01"
+        // Fallback: If packStart is missing, use joinDate. If that's missing too, use earliest attendance or 2000-01-01
+        const packStartStr = customer.packStart || customer.joinDate || '2000-01-01';
         
         // Count how many times they've attended since the pack started
         const attendedSinceStart = this.attendance.filter(a => 
             a.customerId === customer.id && a.date >= packStartStr
         ).length;
 
-        const packSize = parseInt(customer.packDuration);
-        const remaining = packSize - attendedSinceStart;
+        const packSize = parseInt(customer.packDuration) || 30;
+        const remaining = Math.max(0, packSize - attendedSinceStart);
 
         return {
             daysLeft: remaining,
