@@ -772,14 +772,23 @@ class CustomerManager {
 
     // ---- Attendance ----
     toggleAttendance(customerId, date) {
-        const existing = this.attendance.findIndex(a => a.customerId === customerId && a.date === date);
-        if (existing !== -1) {
-            this.attendance.splice(existing, 1);
-        } else {
+        // Find all visits for this customer on this date
+        const visits = this.attendance.filter(a => a.customerId === customerId && a.date === date);
+
+        if (visits.length === 0) {
+            // 0 -> 1: Add first visit
             this.attendance.push({ id: generateId(), customerId, date });
+        } else if (visits.length === 1) {
+            // 1 -> 2: Add second visit
+            this.attendance.push({ id: generateId(), customerId, date });
+        } else {
+            // 2 -> 0: Remove all visits for this day
+            this.attendance = this.attendance.filter(a => !(a.customerId === customerId && a.date === date));
         }
+
         this.saveAttendance();
         this.renderAttendance();
+        this.renderDailyCheckin(); // Keep both in sync
     }
 
     changeAttendanceMonth(delta) {
@@ -834,14 +843,21 @@ class CustomerManager {
                 let monthTotal = 0;
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const isPresent = this.attendance.some(a => a.customerId === c.id && a.date === dateStr);
-                    if (isPresent) monthTotal++;
-                    html += `<td class="attendance-cell ${isPresent ? 'present' : ''}" data-customer-id="${c.id}" data-date="${dateStr}">${isPresent ? '&#10003;' : ''}</td>`;
+                    const dailyVisits = this.attendance.filter(a => a.customerId === c.id && a.date === dateStr).length;
+                    monthTotal += dailyVisits;
+
+                    let cellContent = '';
+                    if (dailyVisits === 1) cellContent = '&#10003;';
+                    else if (dailyVisits === 2) cellContent = '2x';
+                    else if (dailyVisits > 2) cellContent = dailyVisits;
+
+                    html += `<td class="attendance-cell ${dailyVisits > 0 ? 'present' : ''}" 
+                        style="${dailyVisits === 2 ? 'background:rgba(80,200,120,0.3); font-weight:bold;' : ''}"
+                        data-customer-id="${c.id}" data-date="${dateStr}">${cellContent}</td>`;
                 }
                 html += `<td class="attendance-total">${monthTotal}</td>
                         <td style="font-weight:700; color:${leftColor}; text-align:center;">${leftDisplay}</td></tr>`;
-            });
-
+                });
             html += '</tbody></table></div>';
 
             // Inactive customers section with remind buttons
@@ -1286,6 +1302,7 @@ class CustomerManager {
             const notPresent = activeCustomers.filter(c => !this.attendance.some(a => a.customerId === c.id && a.date === today));
 
             const renderItem = (c, isPresent) => {
+                const visitCount = this.attendance.filter(a => a.customerId === c.id && a.date === today).length;
                 const status = this.getPackStatus(c);
                 let statusHtml = '';
                 if (status) {
@@ -1301,7 +1318,10 @@ class CustomerManager {
                             <span style="font-weight:600;">${escapeHtml(c.name)}</span> ${statusHtml}
                             <div style="font-size:0.75rem; color:var(--text-secondary);">${c.phone || 'No phone'}</div>
                         </div>
-                        <div style="font-size:1.2rem;">${isPresent ? '✅' : '⭕'}</div>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            ${visitCount > 1 ? `<span style="background:var(--secondary-color); color:white; padding:2px 8px; border-radius:10px; font-size:0.8rem; font-weight:bold;">x${visitCount}</span>` : ''}
+                            <div style="font-size:1.2rem;">${isPresent ? '✅' : '⭕'}</div>
+                        </div>
                     </div>
                 `;
             };
@@ -1316,12 +1336,17 @@ class CustomerManager {
 
     toggleDailyAttendance(customerId) {
         const today = new Date().toISOString().split('T')[0];
-        const existing = this.attendance.findIndex(a => a.customerId === customerId && a.date === today);
+        const visits = this.attendance.filter(a => a.customerId === customerId && a.date === today);
 
-        if (existing !== -1) {
-            this.attendance.splice(existing, 1);
-        } else {
+        if (visits.length === 0) {
+            // 0 -> 1: Add first visit
             this.attendance.push({ id: generateId(), customerId, date: today });
+        } else if (visits.length === 1) {
+            // 1 -> 2: Add second visit
+            this.attendance.push({ id: generateId(), customerId, date: today });
+        } else {
+            // 2 -> 0: Remove all visits for today
+            this.attendance = this.attendance.filter(a => !(a.customerId === customerId && a.date === today));
         }
 
         this.saveAttendance();
