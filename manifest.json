@@ -1,0 +1,22 @@
+{
+  "name": "Nutrition Center Manager",
+  "short_name": "NutritionMgr",
+  "description": "Track finances, inventory, and customers professionally",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#4a90e2",
+  "theme_color": "#4a90e2",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3069/3069172.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/3069/3069172.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

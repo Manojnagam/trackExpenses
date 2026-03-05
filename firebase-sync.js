@@ -17,6 +17,7 @@ const SYNC_COLLECTIONS = {
     nutritionCustomers:   'customers',
     nutritionAttendance:  'attendance',
     nutritionEMI:         'emi',
+    nutritionComposition: 'composition',
     inventoryStock:       'stock',
     inventoryStockIn:     'stockIn',
     inventoryStockOut:    'stockOut',
@@ -116,6 +117,7 @@ class CloudSync {
             { obj: () => window.customerManager,  method: 'saveCustomers',        key: 'nutritionCustomers' },
             { obj: () => window.customerManager,  method: 'saveAttendance',       key: 'nutritionAttendance' },
             { obj: () => window.customerManager,  method: 'saveEMI',             key: 'nutritionEMI' },
+            { obj: () => window.customerManager,  method: 'saveComposition',     key: 'nutritionComposition' },
             { obj: () => window.inventoryManager, method: 'saveStockData',        key: 'inventoryStock' },
             { obj: () => window.inventoryManager, method: 'saveStockInHistory',   key: 'inventoryStockIn' },
             { obj: () => window.inventoryManager, method: 'saveStockOutHistory',  key: 'inventoryStockOut' },
@@ -303,6 +305,7 @@ class CloudSync {
                 customerManager.customers = JSON.parse(localStorage.getItem('nutritionCustomers') || '[]');
                 customerManager.attendance = JSON.parse(localStorage.getItem('nutritionAttendance') || '[]');
                 customerManager.emiPlans = JSON.parse(localStorage.getItem('nutritionEMI') || '[]');
+                customerManager.composition = JSON.parse(localStorage.getItem('nutritionComposition') || '{}');
                 customerManager.renderCustomers();
                 customerManager.renderEMIList();
             }
@@ -559,15 +562,37 @@ class CloudSync {
     }
 
     async syncNow() {
-        if (!this.user || !this.db) return;
-        await this.pushAll();
-        await this.pullFromCloud();
+        if (!this.user || !this.db) {
+            console.error('CloudSync: Cannot sync - user or db missing', { user: !!this.user, db: !!this.db });
+            alert('Cannot sync: Please sign in first.');
+            return;
+        }
+        try {
+            console.log('CloudSync: Starting manual sync...');
+            await this.pushAll();
+            await this.pullFromCloud();
+            alert('Sync complete!');
+        } catch (e) {
+            console.error('CloudSync: Manual sync failed', e);
+            alert('Sync failed: ' + e.message);
+        }
     }
 }
 
 // ---- Initialize after all managers are ready ----
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        window.cloudSync = new CloudSync();
-    }, 500);
+    console.log('CloudSync: Waiting for managers to initialize...');
+    let attempts = 0;
+    const checkManagers = setInterval(() => {
+        attempts++;
+        const allReady = typeof tracker !== 'undefined' && 
+                         typeof inventoryManager !== 'undefined' && 
+                         typeof customerManager !== 'undefined';
+        
+        if (allReady || attempts > 20) {
+            clearInterval(checkManagers);
+            console.log(`CloudSync: Initialization started after ${attempts*100}ms. Ready: ${allReady}`);
+            window.cloudSync = new CloudSync();
+        }
+    }, 100);
 });

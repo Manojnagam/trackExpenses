@@ -4,12 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nutrition Center Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
+        <!-- Install PWA prompt (optional, hidden by default) -->
+        <div id="installPrompt" style="display:none; background:rgba(0,0,0,0.8); color:white; padding:15px; position:fixed; bottom:20px; left:20px; right:20px; border-radius:10px; z-index:9999; justify-content:space-between; align-items:center; backdrop-filter:blur(5px);">
+            <span>Install this app on your mobile home screen!</span>
+            <button id="installBtn" class="btn btn-primary" style="width:auto; margin:0; padding:8px 16px;">Install</button>
+        </div>
         <header>
             <div class="header-content">
                 <div>
@@ -26,6 +34,8 @@
                 <button class="nav-tab" data-tab="finance">💰 Finance</button>
                 <button class="nav-tab" data-tab="inventory">📦 Inventory</button>
                 <button class="nav-tab" data-tab="customers">👥 Customers</button>
+                <button class="nav-tab" data-tab="attendance">✅ Attendance</button>
+                <button class="nav-tab" data-tab="composition">⚖️ Composition</button>
                 <button class="nav-tab" data-tab="emi">💳 EMI</button>
             </nav>
         </header>
@@ -550,35 +560,64 @@
                 <h2>👥 Customer Management</h2>
             </div>
 
-            <div class="inventory-tabs">
-                <button class="cust-tab-btn active" data-cust-tab="customerList">Customer List</button>
-                <button class="cust-tab-btn" data-cust-tab="attendance">Attendance</button>
-            </div>
-
-            <!-- Customer List Sub-tab -->
+            <!-- Customer List -->
             <div id="customerListCustTab" class="cust-tab-content active">
                 <div class="stock-form-section" style="margin-bottom: 30px;">
                     <h3>Add Customer</h3>
                     <form id="customerForm">
-                        <div class="form-group">
-                            <label for="customerName">Name</label>
-                            <input type="text" id="customerName" placeholder="Customer name" required>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                            <div class="form-group">
+                                <label for="customerName">Name</label>
+                                <input type="text" id="customerName" placeholder="Customer name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPhone">Mobile Number</label>
+                                <input type="tel" id="customerPhone" placeholder="Phone number" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="customerReferred">Referred By</label>
+                                <input type="text" id="customerReferred" placeholder="Referrer name">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerAge">Age</label>
+                                <input type="number" id="customerAge" placeholder="Age">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerGender">Gender</label>
+                                <select id="customerGender">
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="customerHeight">Height (cm)</label>
+                                <input type="number" id="customerHeight" step="0.1" placeholder="Height in cm">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerJoinDate">Join Date</label>
+                                <input type="date" id="customerJoinDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPackStart">Pack Start Date</label>
+                                <input type="date" id="customerPackStart">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPackDuration">Pack Days</label>
+                                <input type="number" id="customerPackDuration" value="30" placeholder="e.g. 30">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPlan">Plan</label>
+                                <select id="customerPlan" required>
+                                    <option value="weight-gain">Weight Gain</option>
+                                    <option value="weight-loss">Weight Loss</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label for="customerPhone">Phone</label>
-                            <input type="tel" id="customerPhone" placeholder="Phone number">
-                        </div>
-                        <div class="form-group">
-                            <label for="customerPlan">Plan</label>
-                            <select id="customerPlan" required>
-                                <option value="weight-gain">Weight Gain</option>
-                                <option value="weight-loss">Weight Loss</option>
-                                <option value="general">General</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="customerJoinDate">Join Date</label>
-                            <input type="date" id="customerJoinDate">
+                            <label for="customerAddress">Address</label>
+                            <input type="text" id="customerAddress" placeholder="Full address">
                         </div>
                         <div class="form-group">
                             <label for="customerNotes">Notes (Optional)</label>
@@ -602,9 +641,43 @@
                     <div id="customerList" class="customer-list"></div>
                 </div>
             </div>
+        </div>
+        <!-- End Customers Section -->
 
-            <!-- Attendance Sub-tab -->
-            <div id="attendanceCustTab" class="cust-tab-content">
+        <!-- Attendance Section -->
+        <div id="attendanceSection" class="tab-content">
+            <div class="inventory-header">
+                <h2>✅ Attendance Tracking</h2>
+            </div>
+
+            <div class="inventory-tabs">
+                <button class="cust-tab-btn active" data-cust-tab="dailyCheckin">Daily Check-in</button>
+                <button class="cust-tab-btn" data-cust-tab="attendanceGrid">Monthly Grid</button>
+            </div>
+
+            <!-- Daily Check-in Sub-tab -->
+            <div id="dailyCheckinCustTab" class="cust-tab-content active">
+                <div class="stock-form-section" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>Today's Check-in</h3>
+                        <button class="btn btn-whatsapp" id="whatsappDailyAttendance" style="width:auto;">📱 Share Attendance</button>
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+                    <div class="stock-history" style="border-top: 4px solid var(--danger-color);">
+                        <h3>🔴 Not Present Yet Today</h3>
+                        <div id="notPresentTodayList" class="inactive-customers-list"></div>
+                    </div>
+                    <div class="stock-history" style="border-top: 4px solid var(--secondary-color);">
+                        <h3>🟢 Present Today</h3>
+                        <div id="presentTodayList" class="inactive-customers-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance Grid Sub-tab -->
+            <div id="attendanceGridCustTab" class="cust-tab-content">
                 <div class="stock-form-section">
                     <div class="attendance-nav">
                         <button class="btn btn-secondary" id="attendancePrevMonth" style="width:auto;margin:0;padding:8px 16px;">&larr; Prev</button>
@@ -615,7 +688,24 @@
                 </div>
             </div>
         </div>
-        <!-- End Customers Section -->
+        <!-- End Attendance Section -->
+
+        <!-- Composition Section -->
+        <div id="compositionSection" class="tab-content">
+            <div class="inventory-header">
+                <h2>⚖️ Body Composition & Health Trends</h2>
+            </div>
+            
+            <div class="stock-form-section">
+                <div class="stock-filters" style="margin-bottom:20px;">
+                    <input type="text" id="compSearch" placeholder="Search customer health trends..." class="search-input">
+                </div>
+                <div id="allCompositionsList" class="composition-grid">
+                    <p class="empty-state">Loading compositions...</p>
+                </div>
+            </div>
+        </div>
+        <!-- End Composition Section -->
 
         <!-- EMI Section -->
         <div id="emiSection" class="tab-content">
@@ -688,6 +778,12 @@
             </div>
             <div class="modal-body">
                 <div class="settings-section">
+                    <h3>Data Migration</h3>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:10px;">Import body composition data from your old system (JSON format):</p>
+                    <textarea id="migrationJson" rows="4" placeholder='Paste your customer_export.json content here...' style="width:100%; padding:10px; border:2px solid var(--border-color); border-radius:8px; font-family:monospace; font-size:0.8rem; margin-bottom:10px;"></textarea>
+                    <button class="btn btn-primary" id="runMigrationBtn">🚀 Import Old Data</button>
+                </div>
+                <div class="settings-section">
                     <h3>Data Management</h3>
                     <button class="btn btn-secondary" id="backupBtn">💾 Backup Data</button>
                     <button class="btn btn-secondary" id="restoreBtn">📂 Restore Data</button>
@@ -749,6 +845,88 @@
         </div>
     </div>
 
+    <!-- Body Composition Modal -->
+    <div id="compositionModal" class="modal">
+        <div class="modal-content" style="max-width:800px;">
+            <div class="modal-header">
+                <h2 id="compCustomerName">Body Composition</h2>
+                <button class="modal-close" id="closeCompModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-form-section" style="margin-bottom: 20px;">
+                    <h3>Add Weekly Entry</h3>
+                    <form id="compForm">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+                            <div class="form-group">
+                                <label for="compDate">Date</label>
+                                <input type="date" id="compDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compWeight">Weight (kg)</label>
+                                <input type="number" id="compWeight" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compFat">Fat (%)</label>
+                                <input type="number" id="compFat" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compVisceral">Visceral Fat</label>
+                                <input type="number" id="compVisceral" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compBMR">BMR</label>
+                                <input type="number" id="compBMR" step="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compBMI">BMI</label>
+                                <input type="number" id="compBMI" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compBodyAge">Body Age</label>
+                                <input type="number" id="compBodyAge" step="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compSubcut">Subcut. Fat (%)</label>
+                                <input type="number" id="compSubcut" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="compMuscle">Muscle (%)</label>
+                                <input type="number" id="compMuscle" step="0.1" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="margin-top:10px;">Add Record</button>
+                    </form>
+                </div>
+                
+                <div class="stock-history">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h3>Progress History</h3>
+                        <button class="btn btn-whatsapp" id="whatsappCompBtn" style="width:auto;">📱 Share Progress</button>
+                    </div>
+                    <div class="attendance-table-wrapper">
+                        <table class="pl-table" id="compTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Weight</th>
+                                    <th>Fat%</th>
+                                    <th>Visceral</th>
+                                    <th>BMR</th>
+                                    <th>BMI</th>
+                                    <th>Age</th>
+                                    <th>Subcut.</th>
+                                    <th>Muscle</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script src="inventory.js"></script>
     <script src="customers.js"></script>
@@ -758,5 +936,78 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="firebase-sync.js"></script>
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => {
+                        console.log('Service Worker Registered');
+                        reg.onupdatefound = () => {
+                            const installingWorker = reg.installing;
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    if(confirm('New version available! Reload?')) window.location.reload();
+                                }
+                            };
+                        };
+                    })
+                    .catch(err => console.log('Service Worker Registration Failed', err));
+            });
+        }
+
+        // PWA Install Logic
+        let deferredPrompt;
+        const installPrompt = document.getElementById('installPrompt');
+        const installBtn = document.getElementById('installBtn');
+
+        // Function to check if app is running as PWA
+        function isAppInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || localStorage.getItem('pwaInstalled') === 'true';
+        }
+
+        // Hide prompt if already installed
+        if (isAppInstalled()) {
+            if (installPrompt) installPrompt.style.setProperty('display', 'none', 'important');
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('beforeinstallprompt event fired');
+            // Prevent automatic showing of the prompt
+            e.preventDefault();
+            // Stash the event
+            deferredPrompt = e;
+            // Only show UI if NOT already installed
+            if (!isAppInstalled()) {
+                if (installPrompt) installPrompt.style.display = 'flex';
+            }
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', (e) => {
+                console.log('Install button clicked');
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted the install prompt');
+                            if (installPrompt) installPrompt.style.display = 'none';
+                            localStorage.setItem('pwaInstalled', 'true');
+                        }
+                        deferredPrompt = null;
+                    });
+                } else {
+                    alert('To install, use your browser menu and select "Add to Home Screen" or "Install App".');
+                }
+            });
+        }
+
+        // Hide when installed
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('App was successfully installed');
+            if (installPrompt) installPrompt.style.display = 'none';
+            localStorage.setItem('pwaInstalled', 'true');
+        });
+    </script>
 </body>
 </html>

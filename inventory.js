@@ -1074,11 +1074,8 @@ class InventoryManager {
             // Verify each save was successful
             try {
                 const verifyStock = localStorage.getItem('inventoryStock');
-                if (verifyStock && verifyStock !== '{}' && verifyStock !== 'null') {
-                    const parsed = JSON.parse(verifyStock);
-                    if (Object.keys(parsed).length > 0) {
-                        saveResults.stockData = true;
-                    }
+                if (verifyStock && verifyStock !== 'null') {
+                    saveResults.stockData = true;
                 }
             } catch (e) {
                 saveResults.errors.push('Stock data verification failed: ' + e.message);
@@ -1086,11 +1083,8 @@ class InventoryManager {
 
             try {
                 const verifyStockIn = localStorage.getItem('inventoryStockIn');
-                if (verifyStockIn && verifyStockIn !== '[]' && verifyStockIn !== 'null') {
-                    const parsed = JSON.parse(verifyStockIn);
-                    if (Array.isArray(parsed)) {
-                        saveResults.stockInHistory = true;
-                    }
+                if (verifyStockIn && verifyStockIn !== 'null') {
+                    saveResults.stockInHistory = true;
                 }
             } catch (e) {
                 saveResults.errors.push('Stock In history verification failed: ' + e.message);
@@ -1098,11 +1092,8 @@ class InventoryManager {
 
             try {
                 const verifyStockOut = localStorage.getItem('inventoryStockOut');
-                if (verifyStockOut && verifyStockOut !== '[]' && verifyStockOut !== 'null') {
-                    const parsed = JSON.parse(verifyStockOut);
-                    if (Array.isArray(parsed)) {
-                        saveResults.stockOutHistory = true;
-                    }
+                if (verifyStockOut && verifyStockOut !== 'null') {
+                    saveResults.stockOutHistory = true;
                 }
             } catch (e) {
                 saveResults.errors.push('Stock Out history verification failed: ' + e.message);
@@ -1110,11 +1101,8 @@ class InventoryManager {
 
             try {
                 const verifyDailyUsage = localStorage.getItem('inventoryDailyUsage');
-                if (verifyDailyUsage && verifyDailyUsage !== '[]' && verifyDailyUsage !== 'null') {
-                    const parsed = JSON.parse(verifyDailyUsage);
-                    if (Array.isArray(parsed)) {
-                        saveResults.dailyUsage = true;
-                    }
+                if (verifyDailyUsage && verifyDailyUsage !== 'null') {
+                    saveResults.dailyUsage = true;
                 }
             } catch (e) {
                 saveResults.errors.push('Daily usage verification failed: ' + e.message);

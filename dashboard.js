@@ -43,6 +43,17 @@ class DashboardManager {
         if (tabName === 'inventory' && typeof inventoryManager !== 'undefined') {
             setTimeout(() => inventoryManager.forceRefreshDisplay(), 100);
         }
+
+        if (tabName === 'attendance' && typeof customerManager !== 'undefined') {
+            setTimeout(() => {
+                customerManager.renderDailyCheckin();
+                customerManager.renderAttendance();
+            }, 100);
+        }
+
+        if (tabName === 'composition' && typeof customerManager !== 'undefined') {
+            setTimeout(() => customerManager.renderAllCompositions(), 100);
+        }
     }
 
     refreshDashboard() {

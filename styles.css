@@ -1391,6 +1391,13 @@ body.dark-mode .toast-notification {
     gap: 20px;
 }
 
+.composition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
 .customer-card {
     background: var(--bg-color);
     padding: 20px;

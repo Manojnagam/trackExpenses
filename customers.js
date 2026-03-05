@@ -6,8 +6,10 @@ class CustomerManager {
         this.customers = this.loadCustomers();
         this.attendance = this.loadAttendance();
         this.emiPlans = this.loadEMI();
+        this.composition = this.loadComposition();
         this.editingCustomerId = null;
         this.editingEMIId = null;
+        this.currentCompCustomerId = null;
         this.init();
     }
 
@@ -16,14 +18,23 @@ class CustomerManager {
         document.getElementById('customerForm')?.addEventListener('submit', (e) => this.handleCustomerSubmit(e));
         document.getElementById('cancelCustomerEdit')?.addEventListener('click', () => this.cancelCustomerEdit());
 
+        // Body Composition
+        document.getElementById('compForm')?.addEventListener('submit', (e) => this.handleCompSubmit(e));
+        document.getElementById('closeCompModal')?.addEventListener('click', () => this.closeCompModal());
+        document.getElementById('whatsappCompBtn')?.addEventListener('click', () => this.shareCompProgress());
+
         // Customer search & filter
         document.getElementById('customerSearch')?.addEventListener('input', () => this.renderCustomers());
         document.getElementById('customerPlanFilter')?.addEventListener('change', () => this.renderCustomers());
+        
+        // Composition search
+        document.getElementById('compSearch')?.addEventListener('input', () => this.renderAllCompositions());
 
         // Customer sub-tabs
         document.querySelectorAll('.cust-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const tabName = e.target.dataset.custTab;
+                const targetBtn = e.target.closest('.cust-tab-btn');
+                const tabName = targetBtn.dataset.custTab;
                 this.switchCustomerTab(tabName);
             });
         });
@@ -48,6 +59,7 @@ class CustomerManager {
             if (action === 'editCustomer') this.editCustomer(id);
             else if (action === 'deleteCustomer') this.deleteCustomer(id);
             else if (action === 'whatsappCustomer') this.sendCustomerMessage(id);
+            else if (action === 'viewComposition') this.viewComposition(id);
         });
 
         // Event delegation for attendance grid
@@ -75,6 +87,12 @@ class CustomerManager {
             else if (action === 'whatsappEMIReminder') this.sendEMIReminder(id);
         });
 
+        // Migration button
+        document.getElementById('runMigrationBtn')?.addEventListener('click', () => this.runMigration());
+        
+        // Daily Check-in Actions
+        document.getElementById('whatsappDailyAttendance')?.addEventListener('click', () => this.shareDailyAttendance());
+
         // Populate customer dropdown in EMI form
         this.populateEMICustomerDropdown();
 
@@ -84,8 +102,10 @@ class CustomerManager {
 
         // Initial render
         this.renderCustomers();
+        this.renderDailyCheckin();
         this.renderAttendance();
         this.renderEMIList();
+        this.renderAllCompositions();
     }
 
     // ---- Customer Sub-tabs ----
@@ -96,8 +116,10 @@ class CustomerManager {
         document.querySelector(`[data-cust-tab="${tabName}"]`)?.classList.add('active');
         document.getElementById(`${tabName}CustTab`)?.classList.add('active');
 
-        if (tabName === 'attendance') {
+        if (tabName === 'attendanceGrid') {
             this.renderAttendance();
+        } else if (tabName === 'dailyCheckin') {
+            this.renderDailyCheckin();
         }
     }
 
@@ -193,11 +215,40 @@ class CustomerManager {
         }
     }
 
+    // ---- Load / Save Composition ----
+    loadComposition() {
+        let stored = localStorage.getItem('nutritionComposition');
+        if (!stored) stored = localStorage.getItem('nutritionComposition_secondary');
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) { return {}; }
+        }
+        return {};
+    }
+
+    saveComposition() {
+        try {
+            localStorage.setItem('nutritionComposition', JSON.stringify(this.composition));
+            localStorage.setItem('nutritionComposition_secondary', JSON.stringify(this.composition));
+            if (window.cloudSync) window.cloudSync.queueSync('nutritionComposition');
+        } catch (e) {
+            console.error('Failed to save composition:', e);
+        }
+    }
+
     // ---- Customer CRUD ----
     handleCustomerSubmit(e) {
         e.preventDefault();
         const name = document.getElementById('customerName').value.trim();
         const phone = document.getElementById('customerPhone').value.trim();
+        const referredBy = document.getElementById('customerReferred')?.value.trim() || '';
+        const age = document.getElementById('customerAge')?.value || '';
+        const gender = document.getElementById('customerGender')?.value || 'male';
+        const height = document.getElementById('customerHeight')?.value || '';
+        const address = document.getElementById('customerAddress')?.value.trim() || '';
+        const packStart = document.getElementById('customerPackStart')?.value || '';
+        const packDuration = parseInt(document.getElementById('customerPackDuration')?.value || '30');
         const plan = document.getElementById('customerPlan').value;
         const joinDate = document.getElementById('customerJoinDate').value;
         const notes = document.getElementById('customerNotes').value.trim();
@@ -207,7 +258,10 @@ class CustomerManager {
         if (this.editingCustomerId) {
             const index = this.customers.findIndex(c => c.id === this.editingCustomerId);
             if (index !== -1) {
-                this.customers[index] = { ...this.customers[index], name, phone, plan, joinDate, notes };
+                this.customers[index] = { 
+                    ...this.customers[index], 
+                    name, phone, referredBy, age, gender, height, address, packStart, packDuration, plan, joinDate, notes 
+                };
             }
             this.cancelCustomerEdit();
         } else {
@@ -215,6 +269,13 @@ class CustomerManager {
                 id: generateId(),
                 name,
                 phone,
+                referredBy,
+                age,
+                gender,
+                height,
+                address,
+                packStart,
+                packDuration,
                 plan,
                 joinDate,
                 notes,
@@ -240,6 +301,13 @@ class CustomerManager {
         this.editingCustomerId = id;
         document.getElementById('customerName').value = customer.name;
         document.getElementById('customerPhone').value = customer.phone || '';
+        if (document.getElementById('customerReferred')) document.getElementById('customerReferred').value = customer.referredBy || '';
+        if (document.getElementById('customerAge')) document.getElementById('customerAge').value = customer.age || '';
+        if (document.getElementById('customerGender')) document.getElementById('customerGender').value = customer.gender || 'male';
+        if (document.getElementById('customerHeight')) document.getElementById('customerHeight').value = customer.height || '';
+        if (document.getElementById('customerAddress')) document.getElementById('customerAddress').value = customer.address || '';
+        if (document.getElementById('customerPackStart')) document.getElementById('customerPackStart').value = customer.packStart || '';
+        if (document.getElementById('customerPackDuration')) document.getElementById('customerPackDuration').value = customer.packDuration || 30;
         document.getElementById('customerPlan').value = customer.plan;
         document.getElementById('customerJoinDate').value = customer.joinDate || '';
         document.getElementById('customerNotes').value = customer.notes || '';
@@ -255,6 +323,188 @@ class CustomerManager {
         document.getElementById('customerJoinDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('cancelCustomerEdit').style.display = 'none';
         document.querySelector('#customerForm button[type="submit"]').textContent = 'Add Customer';
+    }
+
+    // ---- Body Composition Methods ----
+    renderAllCompositions() {
+        const listContainer = document.getElementById('allCompositionsList');
+        const searchTerm = document.getElementById('compSearch')?.value.toLowerCase() || '';
+        
+        if (!listContainer) return;
+
+        const results = this.customers.filter(customer => {
+            const matchesSearch = customer.name.toLowerCase().includes(searchTerm) || 
+                                 customer.phone.includes(searchTerm);
+            return matchesSearch;
+        });
+
+        if (results.length === 0) {
+            listContainer.innerHTML = '<p class="empty-state">No customers found.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = results.map(customer => {
+            const records = this.composition[customer.id] || [];
+            const lastRecord = records[0];
+            const secondLastRecord = records[1];
+            
+            let statusHTML = '<span class="status-badge status-inactive">No data</span>';
+            let trendHTML = '';
+
+            if (lastRecord) {
+                statusHTML = `<span class="status-badge status-active">Last entry: ${new Date(lastRecord.date).toLocaleDateString('en-GB')}</span>`;
+                
+                if (secondLastRecord) {
+                    const diff = (lastRecord.weight - secondLastRecord.weight).toFixed(1);
+                    const color = diff > 0 ? 'var(--danger-color)' : 'var(--secondary-color)';
+                    const arrow = diff > 0 ? '↗' : '↘';
+                    trendHTML = `<span style="color:${color}; font-weight:bold; margin-left:10px;">${arrow} ${Math.abs(diff)} kg</span>`;
+                }
+            }
+
+            return `
+                <div class="customer-card">
+                    <div class="customer-card-header">
+                        <h4>${customer.name}</h4>
+                        ${statusHTML}
+                    </div>
+                    <div class="customer-card-details">
+                        <p><strong>Phone:</strong> ${customer.phone}</p>
+                        ${lastRecord ? `
+                            <p><strong>Weight:</strong> ${lastRecord.weight} kg ${trendHTML}</p>
+                            <p><strong>Fat:</strong> ${lastRecord.fat}% | <strong>BMI:</strong> ${lastRecord.bmi}</p>
+                        ` : '<p>Start tracking by clicking below.</p>'}
+                    </div>
+                    <div class="customer-card-actions">
+                        <button class="btn btn-secondary btn-sm" data-action="viewComposition" data-id="${customer.id}">View Details</button>
+                        <button class="btn btn-primary btn-sm" onclick="customerManager.quickAddComp('${customer.id}')">Add Entry</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    quickAddComp(id) {
+        this.viewComposition(id);
+    }
+
+    viewComposition(id) {
+        const customer = this.customers.find(c => c.id === id);
+        if (!customer) return;
+
+        this.currentCompCustomerId = id;
+        document.getElementById('compCustomerName').textContent = `Body Composition: ${customer.name}`;
+        document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
+        
+        this.renderComposition();
+        document.getElementById('compositionModal').classList.add('show');
+    }
+
+    closeCompModal() {
+        this.currentCompCustomerId = null;
+        document.getElementById('compositionModal').classList.remove('show');
+        document.getElementById('compForm').reset();
+    }
+
+    handleCompSubmit(e) {
+        e.preventDefault();
+        if (!this.currentCompCustomerId) return;
+
+        const record = {
+            id: generateId(),
+            date: document.getElementById('compDate').value,
+            weight: parseFloat(document.getElementById('compWeight').value),
+            fat: parseFloat(document.getElementById('compFat').value),
+            visceral: parseFloat(document.getElementById('compVisceral').value),
+            bmr: parseInt(document.getElementById('compBMR').value),
+            bmi: parseFloat(document.getElementById('compBMI').value),
+            bodyAge: parseInt(document.getElementById('compBodyAge').value),
+            subcut: parseFloat(document.getElementById('compSubcut').value),
+            muscle: parseFloat(document.getElementById('compMuscle').value)
+        };
+
+        if (!this.composition[this.currentCompCustomerId]) {
+            this.composition[this.currentCompCustomerId] = [];
+        }
+
+        this.composition[this.currentCompCustomerId].unshift(record);
+        this.composition[this.currentCompCustomerId].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        this.saveComposition();
+        this.renderComposition();
+        this.renderAllCompositions();
+        document.getElementById('compForm').reset();
+        document.getElementById('compDate').value = new Date().toISOString().split('T')[0];
+        
+        if (typeof inventoryManager !== 'undefined') {
+            inventoryManager.showToast('Composition record added!', 'success');
+        }
+    }
+
+    renderComposition() {
+        const tbody = document.getElementById('compTableBody');
+        if (!tbody) return;
+
+        const records = this.composition[this.currentCompCustomerId] || [];
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">No records yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = records.map(r => `
+            <tr>
+                <td>${new Date(r.date).toLocaleDateString('en-GB')}</td>
+                <td>${r.weight} kg</td>
+                <td>${r.fat}%</td>
+                <td>${r.visceral}</td>
+                <td>${r.bmr}</td>
+                <td>${r.bmi}</td>
+                <td>${r.bodyAge}</td>
+                <td>${r.subcut}%</td>
+                <td>${r.muscle}%</td>
+                <td>
+                    <button class="btn btn-delete btn-whatsapp-sm" onclick="customerManager.deleteCompRecord('${r.id}')">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    deleteCompRecord(recordId) {
+        if (!this.currentCompCustomerId) return;
+        if (!confirm('Delete this record?')) return;
+
+        this.composition[this.currentCompCustomerId] = this.composition[this.currentCompCustomerId].filter(r => r.id !== recordId);
+        this.saveComposition();
+        this.renderComposition();
+    }
+
+    shareCompProgress() {
+        if (!this.currentCompCustomerId) return;
+        const customer = this.customers.find(c => c.id === this.currentCompCustomerId);
+        const records = this.composition[this.currentCompCustomerId] || [];
+        if (records.length === 0) return;
+
+        const latest = records[0];
+        const previous = records.length > 1 ? records[1] : null;
+
+        let message = `*Body Composition Report: ${customer.name}*\n`;
+        message += `Date: ${new Date(latest.date).toLocaleDateString('en-GB')}\n\n`;
+        message += `Weight: ${latest.weight} kg ${previous ? (latest.weight < previous.weight ? '▼' : '▲') : ''}\n`;
+        message += `Body Fat: ${latest.fat}%\n`;
+        message += `Visceral Fat: ${latest.visceral}\n`;
+        message += `Muscle: ${latest.muscle}%\n`;
+        message += `Body Age: ${latest.bodyAge}\n`;
+        message += `BMI: ${latest.bmi}\n`;
+        message += `BMR: ${latest.bmr}\n`;
+        message += `Subcut. Fat: ${latest.subcut}%\n\n`;
+        
+        if (previous) {
+            const weightDiff = (latest.weight - previous.weight).toFixed(1);
+            message += `Progress since last check: ${weightDiff > 0 ? '+' : ''}${weightDiff} kg\n`;
+        }
+        
+        message += `Keep going! Consistency is the key! 💪🍎`;
+        this.openWhatsApp(customer.phone, message);
     }
 
     deleteCustomer(id) {
@@ -289,6 +539,15 @@ class CustomerManager {
         list.innerHTML = filtered.map(c => {
             const daysSinceJoined = c.joinDate ? Math.floor((Date.now() - new Date(c.joinDate).getTime()) / 86400000) : '—';
             const streak = this.getStreak(c.id);
+            const status = this.getPackStatus(c);
+            let statusHtml = '';
+            if (status) {
+                const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
+                statusHtml = `<span style="font-size:0.85rem; color:${color}; font-weight:700; background:rgba(0,0,0,0.05); padding:2px 8px; border-radius:4px; margin-left:10px;">
+                    ${status.isExpired ? 'Expired' : status.daysLeft + ' Days Left'}
+                </span>`;
+            }
+
             const planLabels = { 'weight-gain': 'Weight Gain', 'weight-loss': 'Weight Loss', 'general': 'General' };
             const planColors = { 'weight-gain': '#50c878', 'weight-loss': '#e74c3c', 'general': '#4a90e2' };
 
@@ -296,18 +555,22 @@ class CustomerManager {
                 <div class="customer-card">
                     <div class="customer-card-header">
                         <div>
-                            <div class="customer-name">${escapeHtml(c.name)}</div>
+                            <div class="customer-name">${escapeHtml(c.name)} ${statusHtml}</div>
                             <div class="customer-phone">${c.phone ? escapeHtml(c.phone) : 'No phone'}</div>
                         </div>
                         <span class="plan-badge" style="background: ${planColors[c.plan] || '#4a90e2'}">${planLabels[c.plan] || c.plan}</span>
                     </div>
                     <div class="customer-details">
                         <span>Joined: ${c.joinDate ? new Date(c.joinDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
-                        <span>${daysSinceJoined !== '—' ? daysSinceJoined + ' days' : ''}</span>
+                        <span>${c.age ? 'Age: ' + c.age : ''}</span>
+                        <span>${c.height ? 'Ht: ' + c.height + 'cm' : ''}</span>
                         <span>Streak: ${streak} days</span>
                     </div>
+                    ${c.referredBy ? `<div class="customer-notes">Ref: ${escapeHtml(c.referredBy)}</div>` : ''}
+                    ${c.address ? `<div class="customer-notes">Addr: ${escapeHtml(c.address)}</div>` : ''}
                     ${c.notes ? `<div class="customer-notes">${escapeHtml(c.notes)}</div>` : ''}
-                    <div class="customer-actions">
+                    <div class="customer-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button class="btn btn-info" style="background:#17a2b8; color:white;" data-action="viewComposition" data-id="${c.id}">📊 Composition</button>
                         <button class="btn btn-whatsapp" data-action="whatsappCustomer" data-id="${c.id}">📱 WhatsApp</button>
                         <button class="btn btn-edit" data-action="editCustomer" data-id="${c.id}">Edit</button>
                         <button class="btn btn-delete" data-action="deleteCustomer" data-id="${c.id}">Delete</button>
@@ -761,5 +1024,182 @@ class CustomerManager {
 
         const message = `Hi ${customer.name}, we noticed you haven't visited in ${daysAgo} days.\nConsistency is key for your ${planName} plan!\nCome back soon — we're here to help!`;
         this.openWhatsApp(customer.phone, message);
+    }
+
+    // ---- Daily Check-in & Pack Status ----
+    getPackStatus(customer) {
+        if (!customer.packStart || !customer.packDuration) return null;
+
+        const start = new Date(customer.packStart);
+        const end = new Date(start);
+        end.setDate(start.getDate() + customer.packDuration);
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const diffTime = end - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return {
+            daysLeft: diffDays,
+            endDate: end,
+            isExpired: diffDays <= 0
+        };
+    }
+
+    renderDailyCheckin() {
+        const notPresentList = document.getElementById('notPresentTodayList');
+        const presentTodayList = document.getElementById('presentTodayList');
+        if (!notPresentList || !presentTodayList) return;
+
+        const today = new Date().toISOString().split('T')[0];
+        const activeCustomers = this.customers.filter(c => c.active !== false);
+
+        const present = activeCustomers.filter(c => this.attendance.some(a => a.customerId === c.id && a.date === today));
+        const notPresent = activeCustomers.filter(c => !this.attendance.some(a => a.customerId === c.id && a.date === today));
+
+        const renderItem = (c, isPresent) => {
+            const status = this.getPackStatus(c);
+            let statusHtml = '';
+            if (status) {
+                const color = status.isExpired ? 'var(--danger-color)' : (status.daysLeft <= 3 ? 'var(--warning-color)' : 'var(--secondary-color)');
+                statusHtml = `<span style="font-size:0.8rem; color:${color}; font-weight:600;">
+                    (${status.isExpired ? 'Expired' : status.daysLeft + ' days left'})
+                </span>`;
+            }
+
+            return `
+                <div class="inactive-customer-item" style="cursor:pointer; ${isPresent ? 'background:rgba(80, 200, 120, 0.1);' : ''}" onclick="customerManager.toggleDailyAttendance('${c.id}')">
+                    <div style="flex:1;">
+                        <span style="font-weight:600;">${escapeHtml(c.name)}</span> ${statusHtml}
+                        <div style="font-size:0.75rem; color:var(--text-secondary);">${c.phone || 'No phone'}</div>
+                    </div>
+                    <div style="font-size:1.2rem;">${isPresent ? '✅' : '⭕'}</div>
+                </div>
+            `;
+        };
+
+        notPresentList.innerHTML = notPresent.length > 0 ? notPresent.map(c => renderItem(c, false)).join('') : '<div style="padding:10px; color:var(--text-secondary);">Everyone is checked in! 🎉</div>';
+        presentTodayList.innerHTML = present.length > 0 ? present.map(c => renderItem(c, true)).join('') : '<div style="padding:10px; color:var(--text-secondary);">No one has checked in yet.</div>';
+    }
+
+    toggleDailyAttendance(customerId) {
+        const today = new Date().toISOString().split('T')[0];
+        const existing = this.attendance.findIndex(a => a.customerId === customerId && a.date === today);
+
+        if (existing !== -1) {
+            this.attendance.splice(existing, 1);
+        } else {
+            this.attendance.push({ id: generateId(), customerId, date: today });
+        }
+
+        this.saveAttendance();
+        this.renderDailyCheckin();
+        this.renderAttendance(); // Update the grid too
+    }
+
+    shareDailyAttendance() {
+        const today = new Date().toISOString().split('T')[0];
+        const activeCustomers = this.customers.filter(c => c.active !== false);
+        const present = activeCustomers.filter(c => this.attendance.some(a => a.customerId === c.id && a.date === today));
+
+        let message = `*Attendance Report - ${new Date().toLocaleDateString('en-GB')}*\n\n`;
+        message += `✅ *Present Today (${present.length}):*\n`;
+        if (present.length > 0) {
+            present.forEach((c, i) => {
+                message += `${i+1}. ${c.name}\n`;
+            });
+        } else {
+            message += `_No one checked in yet._\n`;
+        }
+
+        message += `\n*Not Present Yet (${activeCustomers.length - present.length}):*\n`;
+        const notPresent = activeCustomers.filter(c => !this.attendance.some(a => a.customerId === c.id && a.date === today));
+        notPresent.slice(0, 15).forEach((c, i) => {
+            message += `${i+1}. ${c.name}\n`;
+        });
+        if (notPresent.length > 15) message += `_...and ${notPresent.length - 15} more_\n`;
+
+        message += `\nTotal Strength: ${activeCustomers.length}`;
+
+        this.openWhatsApp('', message);
+    }
+
+    runMigration() {
+        const jsonText = document.getElementById('migrationJson')?.value.trim();
+        if (!jsonText) {
+            alert('Please paste the JSON content first!');
+            return;
+        }
+
+        try {
+            const oldData = JSON.parse(jsonText);
+            if (!Array.isArray(oldData)) throw new Error('Invalid format: Top-level must be an array.');
+
+            let customersAdded = 0;
+            let recordsAdded = 0;
+
+            oldData.forEach(item => {
+                // Find or Create Customer
+                let customer = this.customers.find(c => 
+                    c.name === item.Name && (c.phone === (item.Phone || '') || !c.phone)
+                );
+
+                if (!customer) {
+                    customer = {
+                        id: generateId(),
+                        name: item.Name,
+                        phone: item.Phone || '',
+                        age: item.Age || '',
+                        height: item.Height || '',
+                        plan: 'general',
+                        joinDate: item.History && item.History.length > 0 ? item.History[0].Date : new Date().toISOString().split('T')[0],
+                        active: true
+                    };
+                    this.customers.push(customer);
+                    customersAdded++;
+                }
+
+                // Import History
+                if (item.History && Array.isArray(item.History)) {
+                    if (!this.composition[customer.id]) this.composition[customer.id] = [];
+                    
+                    item.History.forEach(h => {
+                        // Check if record already exists for this date
+                        const exists = this.composition[customer.id].some(r => r.date === h.Date);
+                        if (!exists) {
+                            this.composition[customer.id].push({
+                                id: generateId(),
+                                date: h.Date,
+                                weight: h.Weight || 0,
+                                fat: h["Fat%"] || 0,
+                                visceral: h["Visceral fat"] || 0,
+                                bmr: h.BMR || 0,
+                                bmi: h.BMI || 0,
+                                bodyAge: h["Body age"] || 0,
+                                subcut: h["Subcutaneous fat"] || 0,
+                                muscle: h.Muscle || 0
+                            });
+                            recordsAdded++;
+                        }
+                    });
+                    
+                    // Keep sorted by date
+                    this.composition[customer.id].sort((a, b) => new Date(b.date) - new Date(a.date));
+                }
+            });
+
+            this.saveCustomers();
+            this.saveComposition();
+            this.renderCustomers();
+            this.populateEMICustomerDropdown();
+            
+            document.getElementById('migrationJson').value = '';
+            alert(`✅ Migration Complete!\n- ${customersAdded} new customers added\n- ${recordsAdded} composition records imported.`);
+            
+        } catch (e) {
+            console.error('Migration failed:', e);
+            alert('Migration failed: ' + e.message + '\nMake sure you pasted the entire customer_export.json correctly.');
+        }
     }
 }
