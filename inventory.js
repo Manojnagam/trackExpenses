@@ -1731,9 +1731,10 @@ class InventoryManager {
                             <span class="stock-item-category">${escapeHtml(product.category)}</span>
                         </div>
                     </div>
-                    <div class="stock-item-quantity ${quantityClass}">${stock.quantity.toFixed(2)}</div>
-                    <div class="stock-item-unit">${stock.unit}</div>
-                    ${isLowStock || isOutOfStock ? `<div style="margin-top: 10px; color: var(--${isOutOfStock ? 'danger' : 'warning'}-color); font-size: 0.9rem;">⚠️ ${isOutOfStock ? 'Out of Stock' : 'Low Stock'}</div>` : ''}
+                    <div class="stock-item-quantity ${quantityClass}">
+                        ${stock.quantity.toFixed(2)} <span class="stock-item-unit">${stock.unit}</span>
+                    </div>
+                    ${isLowStock || isOutOfStock ? `<div style="margin-top: 10px; color: var(--${isOutOfStock ? 'danger' : 'warning'}-color); font-size: 0.9rem; font-weight:600;">⚠️ ${isOutOfStock ? 'Out of Stock' : 'Low Stock'}</div>` : ''}
                 </div>
             `;
         }).join('');
