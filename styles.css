@@ -1419,6 +1419,18 @@ body.dark-mode .toast-notification {
     margin-bottom: 12px;
 }
 
+.customer-card-details p {
+    margin: 5px 0;
+    font-size: 0.95rem;
+}
+
+.customer-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
+}
+
 .customer-name {
     font-size: 1.15rem;
     font-weight: 600;
@@ -2151,5 +2163,33 @@ body.dark-mode .insight-card {
     .insights-timestamp {
         margin-left: 0;
     }
+}
+
+/* Body Composition Table Sticky Headers */
+.attendance-table-wrapper {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+#compTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8f9fa;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+
+#compTableBody tr:last-child {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #f0f7ff !important; /* Light blue for the Latest Change row */
+    box-shadow: 0 -2px 2px -1px rgba(0,0,0,0.1);
+}
+
+#compTableBody tr:last-child td {
+    border-top: 2px solid #4a90e2;
 }
 
