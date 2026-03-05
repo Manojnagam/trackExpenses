@@ -188,17 +188,7 @@ class CustomerManager {
 
     // ---- Load / Save Customers ----
     loadCustomers() {
-        let stored = localStorage.getItem('nutritionCustomers');
-        if (!stored || stored === '[]' || stored === 'null') {
-            stored = localStorage.getItem('nutritionCustomers_secondary');
-        }
-        if (!stored || stored === '[]' || stored === 'null') {
-            const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('nutritionCustomers_backup_')).sort().reverse();
-            if (backupKeys.length > 0) {
-                stored = localStorage.getItem(backupKeys[0]);
-                if (stored) localStorage.setItem('nutritionCustomers', stored);
-            }
-        }
+        const stored = localStorage.getItem('nutritionCustomers');
         if (stored && stored !== '[]' && stored !== 'null') {
             try {
                 const data = JSON.parse(stored);
@@ -211,10 +201,6 @@ class CustomerManager {
     saveCustomers() {
         try {
             localStorage.setItem('nutritionCustomers', JSON.stringify(this.customers));
-            const backupKey = 'nutritionCustomers_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.customers));
-            cleanupOldBackups('nutritionCustomers_backup_', 3);
-            localStorage.setItem('nutritionCustomers_secondary', JSON.stringify(this.customers));
         } catch (e) {
             console.error('Failed to save customers:', e);
         }
@@ -222,10 +208,7 @@ class CustomerManager {
 
     // ---- Load / Save Attendance ----
     loadAttendance() {
-        let stored = localStorage.getItem('nutritionAttendance');
-        if (!stored || stored === '[]' || stored === 'null') {
-            stored = localStorage.getItem('nutritionAttendance_secondary');
-        }
+        const stored = localStorage.getItem('nutritionAttendance');
         if (stored && stored !== '[]' && stored !== 'null') {
             try {
                 const data = JSON.parse(stored);
@@ -238,7 +221,6 @@ class CustomerManager {
     saveAttendance() {
         try {
             localStorage.setItem('nutritionAttendance', JSON.stringify(this.attendance));
-            localStorage.setItem('nutritionAttendance_secondary', JSON.stringify(this.attendance));
         } catch (e) {
             console.error('Failed to save attendance:', e);
         }
@@ -246,17 +228,7 @@ class CustomerManager {
 
     // ---- Load / Save EMI ----
     loadEMI() {
-        let stored = localStorage.getItem('nutritionEMI');
-        if (!stored || stored === '[]' || stored === 'null') {
-            stored = localStorage.getItem('nutritionEMI_secondary');
-        }
-        if (!stored || stored === '[]' || stored === 'null') {
-            const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('nutritionEMI_backup_')).sort().reverse();
-            if (backupKeys.length > 0) {
-                stored = localStorage.getItem(backupKeys[0]);
-                if (stored) localStorage.setItem('nutritionEMI', stored);
-            }
-        }
+        const stored = localStorage.getItem('nutritionEMI');
         if (stored && stored !== '[]' && stored !== 'null') {
             try {
                 const data = JSON.parse(stored);
@@ -269,10 +241,6 @@ class CustomerManager {
     saveEMI() {
         try {
             localStorage.setItem('nutritionEMI', JSON.stringify(this.emiPlans));
-            const backupKey = 'nutritionEMI_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.emiPlans));
-            cleanupOldBackups('nutritionEMI_backup_', 3);
-            localStorage.setItem('nutritionEMI_secondary', JSON.stringify(this.emiPlans));
         } catch (e) {
             console.error('Failed to save EMI data:', e);
         }
@@ -280,8 +248,7 @@ class CustomerManager {
 
     // ---- Load / Save Composition ----
     loadComposition() {
-        let stored = localStorage.getItem('nutritionComposition');
-        if (!stored) stored = localStorage.getItem('nutritionComposition_secondary');
+        const stored = localStorage.getItem('nutritionComposition');
         if (stored) {
             try {
                 const data = JSON.parse(stored);
@@ -300,7 +267,6 @@ class CustomerManager {
     saveComposition() {
         try {
             localStorage.setItem('nutritionComposition', JSON.stringify(this.composition));
-            localStorage.setItem('nutritionComposition_secondary', JSON.stringify(this.composition));
             if (window.cloudSync) window.cloudSync.queueSync('nutritionComposition');
         } catch (e) {
             console.error('Failed to save composition:', e);
