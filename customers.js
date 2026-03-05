@@ -284,7 +284,14 @@ class CustomerManager {
         if (!stored) stored = localStorage.getItem('nutritionComposition_secondary');
         if (stored) {
             try {
-                return JSON.parse(stored);
+                const data = JSON.parse(stored);
+                // Ensure everything is sorted ascending
+                Object.keys(data).forEach(id => {
+                    if (Array.isArray(data[id])) {
+                        data[id].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    }
+                });
+                return data;
             } catch (e) { return {}; }
         }
         return {};
@@ -409,8 +416,8 @@ class CustomerManager {
 
         listContainer.innerHTML = results.map(customer => {
             const records = this.composition[customer.id] || [];
-            const lastRecord = records[0];
-            const secondLastRecord = records[1];
+            const lastRecord = records[records.length - 1];
+            const secondLastRecord = records[records.length - 2];
             
             let statusHTML = '<span class="status-badge status-inactive">No data</span>';
             let trendHTML = '';
@@ -530,7 +537,7 @@ class CustomerManager {
         }
 
         this.composition[this.currentCompCustomerId].unshift(record);
-        this.composition[this.currentCompCustomerId].sort((a, b) => new Date(b.date) - new Date(a.date));
+        this.composition[this.currentCompCustomerId].sort((a, b) => new Date(a.date) - new Date(b.date));
 
         this.saveComposition();
         this.renderComposition();
@@ -564,8 +571,8 @@ class CustomerManager {
         let diffRowHTML = '';
 
         if (records.length >= 2) {
-            const latest = records[0];
-            const prev = records[1];
+            const latest = records[records.length - 1];
+            const prev = records[records.length - 2];
 
             const diff = (val1, val2, precision = 2) => (val1 - val2).toFixed(precision);
             
@@ -609,8 +616,8 @@ class CustomerManager {
             `;
 
             diffRowHTML = `
-                <tr style="background:rgba(74, 144, 226, 0.1); font-size:0.85rem;">
-                    <td style="font-weight:bold; color:#4a90e2;">Weekly Change</td>
+                <tr style="background:rgba(74, 144, 226, 0.1); font-size:0.85rem; border-top: 2px solid #4a90e2;">
+                    <td style="font-weight:bold; color:#4a90e2;">Latest Change</td>
                     <td>${getIcon(wDiff)}</td>
                     <td>${getIcon(fDiff)}</td>
                     <td>${getIcon(vfDiff)}</td>
@@ -659,7 +666,7 @@ class CustomerManager {
             `;
         }).join('');
 
-        tbody.innerHTML = diffRowHTML + mainRows;
+        tbody.innerHTML = mainRows + diffRowHTML;
     }
 
     deleteCompRecord(recordId) {
@@ -677,8 +684,8 @@ class CustomerManager {
         const records = this.composition[this.currentCompCustomerId] || [];
         if (records.length === 0) return;
 
-        const latest = records[0];
-        const previous = records.length > 1 ? records[1] : null;
+        const latest = records[records.length - 1];
+        const previous = records[records.length - 2];
 
         const fatKg = (latest.weight * latest.fat / 100).toFixed(2);
         const subcutKg = (latest.weight * latest.subcut / 100).toFixed(2);
@@ -1393,7 +1400,7 @@ class CustomerManager {
                     });
                     
                     // Keep sorted by date
-                    this.composition[customer.id].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    this.composition[customer.id].sort((a, b) => new Date(a.date) - new Date(b.date));
                 }
             });
 
