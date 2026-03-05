@@ -133,6 +133,7 @@ class CustomerManager {
         
         // Daily Check-in Actions
         document.getElementById('whatsappDailyAttendance')?.addEventListener('click', () => this.shareDailyAttendance());
+        document.getElementById('downloadDailyAttendance')?.addEventListener('click', () => this.downloadDailyAttendance());
 
         // Populate customer dropdown in EMI form
         this.populateEMICustomerDropdown();
@@ -1298,6 +1299,38 @@ class CustomerManager {
         message += `\nTotal Strength: ${activeCustomers.length}`;
 
         this.openWhatsApp('', message);
+    }
+
+    downloadDailyAttendance() {
+        const todayStr = new Date().toLocaleDateString('en-GB');
+        const todayFileStr = new Date().toISOString().split('T')[0];
+        const activeCustomers = this.customers.filter(c => c.active !== false);
+        const present = activeCustomers.filter(c => this.attendance.some(a => a.customerId === c.id && a.date === (new Date().toISOString().split('T')[0])));
+
+        let content = `ATTENDANCE REPORT - ${todayStr}\n`;
+        content += `--------------------------------\n`;
+        content += `Total Present Today: ${present.length}\n`;
+        content += `Total Active Strength: ${activeCustomers.length}\n`;
+        content += `--------------------------------\n\n`;
+        content += `LIST OF PRESENT CUSTOMERS:\n`;
+        
+        if (present.length > 0) {
+            present.forEach((c, i) => {
+                content += `${i+1}. ${c.name} (${c.phone || 'No Phone'})\n`;
+            });
+        } else {
+            content += `No one checked in yet today.\n`;
+        }
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `attendance_${todayFileStr}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     runMigration() {
