@@ -34,6 +34,7 @@
                 <button class="nav-tab" data-tab="finance">💰 Finance</button>
                 <button class="nav-tab" data-tab="inventory">📦 Inventory</button>
                 <button class="nav-tab" data-tab="customers">👥 Customers</button>
+                <button class="nav-tab" data-tab="coaches">👨‍🏫 Coaches</button>
                 <button class="nav-tab" data-tab="attendance">✅ Attendance</button>
                 <button class="nav-tab" data-tab="composition">⚖️ Composition</button>
                 <button class="nav-tab" data-tab="emi">💳 EMI</button>
@@ -580,7 +581,9 @@
                             </div>
                             <div class="form-group">
                                 <label for="customerReferred">Referred By</label>
-                                <input type="text" id="customerReferred" placeholder="Referrer name">
+                                <select id="customerReferred">
+                                    <option value="">-- Select Coach --</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="customerAge">Age</label>
@@ -660,6 +663,100 @@
             </div>
         </div>
         <!-- End Customers Section -->
+
+        <!-- Coaches Section -->
+        <div id="coachesSection" class="tab-content">
+            <div class="inventory-header">
+                <h2>👨‍🏫 Coach Management & Performance</h2>
+            </div>
+
+            <div class="inventory-tabs">
+                <button class="coach-tab-btn active" data-coach-tab="coachList">Coach List</button>
+                <button class="coach-tab-btn" data-coach-tab="coachPerformance">Performance Report</button>
+            </div>
+
+            <!-- Coach List Tab -->
+            <div id="coachListCoachTab" class="coach-tab-content active">
+                <div class="stock-form-section" style="margin-bottom: 30px;">
+                    <h3 id="coachFormTitle">Add New Coach</h3>
+                    <form id="coachForm">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                            <div class="form-group">
+                                <label for="coachName">Coach Name</label>
+                                <input type="text" id="coachName" placeholder="Full name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="coachPhone">Mobile Number</label>
+                                <input type="tel" id="coachPhone" placeholder="Phone number">
+                            </div>
+                            <div class="form-group">
+                                <label for="coachJoinDate">Join Date</label>
+                                <input type="date" id="coachJoinDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="coachStatus">Status</label>
+                                <select id="coachStatus">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="coachUpline">Upline / Referred By</label>
+                                <select id="coachUpline">
+                                    <option value="">-- Direct (Me) --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="coachNotes">Notes (Optional)</label>
+                            <textarea id="coachNotes" rows="2" placeholder="Notes about this coach..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="coachSubmitBtn">Add Coach</button>
+                        <button type="button" class="btn btn-secondary" id="cancelCoachEdit" style="display: none;">Cancel Edit</button>
+                    </form>
+                </div>
+
+                <div class="stock-form-section">
+                    <h3>Current Coaches</h3>
+                    <div id="coachesList" class="customer-list"></div>
+                </div>
+            </div>
+
+            <!-- Performance Report Tab -->
+            <div id="coachPerformanceCoachTab" class="coach-tab-content">
+                <div class="stock-form-section">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                        <h3 style="margin-bottom:0;">Monthly Performance Report</h3>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <select id="coachPerformanceMonth" class="filter-select" style="min-width:150px;"></select>
+                            <button class="btn btn-export" id="exportCoachReport" style="width:auto;">📥 Export Report</button>
+                        </div>
+                    </div>
+                    
+                    <div class="attendance-table-wrapper">
+                        <table class="pl-table">
+                            <thead>
+                                <tr>
+                                    <th>Coach Name</th>
+                                    <th>New Referrals</th>
+                                    <th>Active Clients</th>
+                                    <th>Total Revenue (est.)</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="coachPerformanceBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="coachPerformanceInsights" class="stock-form-section" style="margin-top:20px; border-left:4px solid var(--secondary-color);">
+                    <h3>💡 Performance Insights</h3>
+                    <div id="coachInsightsContent"></div>
+                </div>
+            </div>
+        </div>
+        <!-- End Coaches Section -->
 
         <!-- Attendance Section -->
         <div id="attendanceSection" class="tab-content">
@@ -1002,6 +1099,7 @@
     <script src="app.js?v=3.3"></script>
     <script src="inventory.js?v=3.3"></script>
     <script src="customers.js?v=3.3"></script>
+    <script src="coaches.js?v=3.3"></script>
     <script src="dashboard.js?v=3.3"></script>
     <script src="insights.js?v=3.3"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>

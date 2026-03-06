@@ -48,6 +48,12 @@ class CloudSync {
 
         window.addEventListener('online', () => { this.online = true; this.flushPending(); this.updateStatusUI(); });
         window.addEventListener('offline', () => { this.online = false; this.updateStatusUI(); });
+        
+        // Ensure data is synced when the page is closed/hidden
+        window.addEventListener('pagehide', () => {
+            this.flushPending();
+        });
+
         this.injectUI();
     }
 
@@ -108,23 +114,47 @@ class CloudSync {
             this.businessId = id;
             this.businessPin = pin;
             
-            // Check if we should push current data or pull from cloud
-            const customers = localStorage.getItem('nutritionCustomers');
-            const hasData = customers && customers !== '[]' && customers !== 'null';
+            // Smarter Data Merge: Instead of overwriting, we merge local and cloud data
+            this.setStatus('syncing');
+            let mergedCount = 0;
+            
+            const storagePath = this.db.collection('shared_business').doc(id);
+            for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
+                const snap = await storagePath.collection('data').doc(docName).get();
+                const localDataRaw = localStorage.getItem(localKey);
+                let localData = [];
+                try { localData = JSON.parse(localDataRaw) || []; } catch(e) { localData = []; }
+                if (!Array.isArray(localData)) localData = [];
 
-            if (hasData) {
-                if (confirm('Data Found on Phone!\n\nDo you want to UPLOAD your local data to the Cloud? \n\n(Click OK if this is the Main Phone. Click CANCEL if you want to DOWNLOAD data from your brother)')) {
-                    await this.pushAll();
-                    alert('✅ Data Uploaded! Now other devices can see it.');
-                } else {
-                    await this.pullFromCloud();
-                    alert('✅ Cloud Data Downloaded!');
+                if (snap.exists) {
+                    const cloud = snap.data();
+                    const cloudData = cloud.data || [];
+                    
+                    if (Array.isArray(cloudData)) {
+                        // Merge logic: Combine arrays and remove duplicates by ID
+                        const combined = [...localData, ...cloudData];
+                        const unique = [];
+                        const seenIds = new Set();
+                        
+                        for (const item of combined) {
+                            const itemId = item.id || JSON.stringify(item);
+                            if (!seenIds.has(itemId)) {
+                                unique.push(item);
+                                seenIds.add(itemId);
+                            }
+                        }
+                        
+                        localStorage.setItem(localKey, JSON.stringify(unique));
+                        mergedCount++;
+                    }
                 }
-            } else {
-                await this.pullFromCloud();
-                alert('✅ Cloud Data Downloaded!');
             }
             
+            // Push the merged result back to cloud so everyone has it
+            await this.pushAll();
+            this.reloadAllManagers();
+            
+            alert(`✅ Sync Activated!\n\nWe merged your local data with the cloud to ensure nothing was lost.`);
             this.updateAuthUI();
         } catch (e) {
             console.error(e);

@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait for other scripts to initialize
     setTimeout(() => {
         customerManager = new CustomerManager();
+        coachManager = new CoachManager();
         dashboardManager = new DashboardManager();
 
         if (typeof InsightsEngine !== 'undefined') {
@@ -192,6 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (tabName === 'customers' && customerManager) {
                     customerManager.renderCustomers();
+                    if (typeof coachManager !== 'undefined') coachManager.populateAllReferredByDropdowns();
+                }
+                if (tabName === 'coaches' && typeof coachManager !== 'undefined') {
+                    coachManager.renderCoaches();
+                    coachManager.renderPerformanceReport();
                 }
                 if (tabName === 'emi' && customerManager) {
                     customerManager.renderEMIList();

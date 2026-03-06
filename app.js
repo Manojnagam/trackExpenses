@@ -314,7 +314,8 @@ class ExpenseTracker {
                 expense.description.toLowerCase().includes(searchTerm) ||
                 expense.category.toLowerCase().includes(searchTerm) ||
                 (expense.type && expense.type.toLowerCase().includes(searchTerm)) ||
-                (expense.notes && expense.notes.toLowerCase().includes(searchTerm));
+                (expense.notes && expense.notes.toLowerCase().includes(searchTerm)) ||
+                expense.amount.toString().includes(searchTerm);
             
             const matchesCategory = !filterCategory || expense.category === filterCategory;
             const matchesType = !filterType || (expense.type || 'Expense') === filterType;
@@ -1424,6 +1425,7 @@ class ExpenseTracker {
 // Initialize the tracker when page loads
 let tracker;
 let customerManager;
+let coachManager;
 let dashboardManager;
 
 document.addEventListener('DOMContentLoaded', () => {
