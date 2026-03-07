@@ -12,7 +12,12 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+    <script>const CURRENT_APP_VERSION = '3.5';</script>
     <div class="container">
+        <!-- Version Indicator for Debugging -->
+        <div id="versionCheck" style="display:none; position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; text-align:center; padding:5px; font-size:0.7rem; z-index:10001;">
+            ⚠️ App not updated (Old version detected). Please swipe down to refresh or clear cache.
+        </div>
         <!-- Install PWA prompt (optional, hidden by default) -->
         <div id="installPrompt" style="display:none; background:rgba(0,0,0,0.8); color:white; padding:15px; position:fixed; bottom:20px; left:20px; right:20px; border-radius:10px; z-index:9999; justify-content:space-between; align-items:center; backdrop-filter:blur(5px);">
             <span>Install this app on your mobile home screen!</span>
@@ -22,7 +27,7 @@
             <div class="header-content">
                 <div>
                     <h1>🍎 Dharani's</h1>
-                    <p class="subtitle">Personalized Wellness & Nutrition Tracking</p>
+                    <p class="subtitle">Personalized Wellness & Nutrition Tracking <span id="verLabel" style="font-size:0.7rem; opacity:0.6; background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:10px; margin-left:5px;">v3.5</span></p>
                 </div>
                 <div class="header-actions">
                     <button class="btn-icon" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
@@ -1114,17 +1119,25 @@
         <button class="nav-tab" data-tab="emi">💳 EMI</button>
     </div>
 
-    <script src="app.js?v=3.4"></script>
-    <script src="inventory.js?v=3.4"></script>
-    <script src="customers.js?v=3.4"></script>
-    <script src="coaches.js?v=3.4"></script>
-    <script src="dashboard.js?v=3.4"></script>
-    <script src="insights.js?v=3.4"></script>
+    <script src="app.js?v=3.5"></script>
+    <script src="inventory.js?v=3.5"></script>
+    <script src="customers.js?v=3.5"></script>
+    <script src="coaches.js?v=3.5"></script>
+    <script src="dashboard.js?v=3.5"></script>
+    <script src="insights.js?v=3.5"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=3.4"></script>
+    <script src="firebase-sync.js?v=3.5"></script>
     <script>
+        // Version Check UI Toggle
+        window.addEventListener('DOMContentLoaded', () => {
+            const verLabel = document.getElementById('verLabel');
+            if (verLabel && verLabel.textContent !== 'v' + CURRENT_APP_VERSION) {
+                document.getElementById('versionCheck').style.display = 'block';
+            }
+        });
+
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -1135,7 +1148,8 @@
                             const installingWorker = reg.installing;
                             installingWorker.onstatechange = () => {
                                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    if(confirm('New version available! Reload?')) window.location.reload();
+                                    alert('New update (v3.5) is ready! The app will now reload to apply the new mobile navigation.');
+                                    window.location.reload();
                                 }
                             };
                         };
