@@ -37,7 +37,9 @@ class DashboardManager {
     switchToTab(tabName) {
         document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+        
+        // Add active class to ALL tabs with this data-tab (Top and Bottom)
+        document.querySelectorAll(`.nav-tab[data-tab="${tabName}"]`).forEach(tab => tab.classList.add('active'));
         document.getElementById(`${tabName}Section`)?.classList.add('active');
 
         if (tabName === 'inventory' && typeof inventoryManager !== 'undefined') {
@@ -176,10 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Override tab switching to refresh dashboard
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
-                const tabName = e.target.dataset.tab;
+                const target = e.target.closest('.nav-tab');
+                if (!target) return;
+                
+                const tabName = target.dataset.tab;
                 document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                e.target.classList.add('active');
+                
+                // Add active class to ALL tabs with this data-tab (Top and Bottom)
+                document.querySelectorAll(`.nav-tab[data-tab="${tabName}"]`).forEach(t => t.classList.add('active'));
                 document.getElementById(`${tabName}Section`)?.classList.add('active');
 
                 if (tabName === 'dashboard' && dashboardManager) {
