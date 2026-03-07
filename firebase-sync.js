@@ -1,5 +1,5 @@
-// Firebase Cloud Sync - Cross-Device Data Sync (Stable v3.0)
-const APP_VERSION = "3.0";
+// Firebase Cloud Sync - Cross-Device Data Sync (Stable v3.4)
+const APP_VERSION = "3.4";
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDizRy1Oti70AFkJzrDQU8fdugvXWgHACQ",
     authDomain: "trackexpenses-6673a.firebaseapp.com",
@@ -62,7 +62,7 @@ class CloudSync {
         this.updateAuthUI();
         if (user) {
             this.hookSaveMethods();
-            setTimeout(() => this.pullFromCloud(), 500);
+            setTimeout(() => this.pullFromCloud(), 1000);
         } else {
             this.unhookSaveMethods();
         }
@@ -78,12 +78,40 @@ class CloudSync {
         await this.auth.signOut();
     }
 
+    // ---- Helper Methods ----
+
+    smartMerge(local, cloud) {
+        if (!local || (Array.isArray(local) && local.length === 0)) return cloud;
+        if (!cloud || (Array.isArray(cloud) && cloud.length === 0)) return local;
+
+        if (Array.isArray(local) && Array.isArray(cloud)) {
+            // Merge arrays by ID or by stringified content
+            const combined = [...local, ...cloud];
+            const unique = [];
+            const seenIds = new Set();
+            
+            for (const item of combined) {
+                const itemId = item.id || JSON.stringify(item);
+                if (!seenIds.has(itemId)) {
+                    unique.push(item);
+                    seenIds.add(itemId);
+                }
+            }
+            return unique;
+        } else if (typeof local === 'object' && typeof cloud === 'object') {
+            // Merge objects by keys (e.g. stockData)
+            return { ...cloud, ...local }; // Local changes win for specific keys
+        }
+        return cloud;
+    }
+
     // ---- Security Logic ----
 
     async setBusinessId(id, pin) {
         if (!id || !pin) { alert('Please enter both ID and PIN'); return; }
         if (pin.length < 4) { alert('PIN must be at least 4 digits'); return; }
         this.setStatus('syncing');
+        console.log(`[CloudSync] Attempting to set Business ID: ${id}`);
         
         try {
             const bizRef = this.db.collection('shared_business').doc(id);
@@ -92,10 +120,12 @@ class CloudSync {
             if (snap.exists) {
                 const data = snap.data();
                 if (data.pin !== pin) {
+                    console.error('[CloudSync] PIN mismatch for Business ID:', id);
                     alert('❌ Incorrect PIN for this Business ID. Access Denied.');
                     this.setStatus('error');
                     return;
                 }
+                console.log('[CloudSync] Business ID and PIN verified.');
             } else {
                 if (confirm(`Create new Shared Business: "${id}"?\n\nPIN will be: ${pin}`)) {
                     await bizRef.set({
@@ -103,6 +133,7 @@ class CloudSync {
                         owner: this.user.email,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    console.log('[CloudSync] New Shared Business created:', id);
                 } else {
                     this.setStatus('synced');
                     return;
@@ -120,31 +151,19 @@ class CloudSync {
             
             const storagePath = this.db.collection('shared_business').doc(id);
             for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
+                console.log(`[CloudSync] Merging collection: ${docName}`);
                 const snap = await storagePath.collection('data').doc(docName).get();
                 const localDataRaw = localStorage.getItem(localKey);
-                let localData = [];
-                try { localData = JSON.parse(localDataRaw) || []; } catch(e) { localData = []; }
-                if (!Array.isArray(localData)) localData = [];
+                let localData = null;
+                try { localData = JSON.parse(localDataRaw); } catch(e) {}
 
                 if (snap.exists) {
                     const cloud = snap.data();
-                    const cloudData = cloud.data || [];
+                    const cloudData = cloud.data;
                     
-                    if (Array.isArray(cloudData)) {
-                        // Merge logic: Combine arrays and remove duplicates by ID
-                        const combined = [...localData, ...cloudData];
-                        const unique = [];
-                        const seenIds = new Set();
-                        
-                        for (const item of combined) {
-                            const itemId = item.id || JSON.stringify(item);
-                            if (!seenIds.has(itemId)) {
-                                unique.push(item);
-                                seenIds.add(itemId);
-                            }
-                        }
-                        
-                        localStorage.setItem(localKey, JSON.stringify(unique));
+                    if (cloudData) {
+                        const merged = this.smartMerge(localData, cloudData);
+                        localStorage.setItem(localKey, JSON.stringify(merged));
                         mergedCount++;
                     }
                 }
@@ -157,8 +176,8 @@ class CloudSync {
             alert(`✅ Sync Activated!\n\nWe merged your local data with the cloud to ensure nothing was lost.`);
             this.updateAuthUI();
         } catch (e) {
-            console.error(e);
-            alert('❌ PERMISSION ERROR\n\nPlease check your Firebase Console rules. The database is blocking access.');
+            console.error('[CloudSync] setBusinessId Error:', e);
+            alert(`❌ PERMISSION ERROR\n\n${e.message}\n\nPlease check your Firebase Console rules.`);
             this.setStatus('error');
         }
     }
@@ -167,6 +186,7 @@ class CloudSync {
 
     hookSaveMethods() {
         if (Object.keys(this.originalMethods).length > 0) return;
+        console.log('[CloudSync] Hooking save methods...');
         const hooks = [
             { obj: () => window.tracker,          method: 'saveExpenses',         key: 'nutritionExpenses' },
             { obj: () => window.tracker,          method: 'saveRecurringExpenses', key: 'nutritionRecurring' },
@@ -186,6 +206,9 @@ class CloudSync {
             this.originalMethods[hook.method] = { target, original };
             target[hook.method] = (...args) => {
                 const result = original(...args);
+                console.log(`[CloudSync] Method ${hook.method} called, queuing sync for ${hook.key}`);
+                // Track local modification time for conflict detection
+                localStorage.setItem('localLastModified_' + hook.key, Date.now().toString());
                 this.queueSync(hook.key);
                 return result;
             };
@@ -193,6 +216,7 @@ class CloudSync {
     }
 
     unhookSaveMethods() {
+        console.log('[CloudSync] Unhooking save methods...');
         for (const [method, { target, original }] of Object.entries(this.originalMethods)) {
             if (target) target[method] = original;
         }
@@ -200,7 +224,10 @@ class CloudSync {
     }
 
     queueSync(localKey) {
-        if (!this.user || !this.db) return;
+        if (!this.user || !this.db) {
+            console.warn(`[CloudSync] Cannot queue sync for ${localKey}: User or DB not initialized.`);
+            return;
+        }
         this.pendingQueue.add(localKey);
         if (this.debounceTimers[localKey]) clearTimeout(this.debounceTimers[localKey]);
         this.debounceTimers[localKey] = setTimeout(() => {
@@ -211,6 +238,7 @@ class CloudSync {
 
     flushPending() {
         if (!this.user || !this.db) return;
+        if (this.pendingQueue.size > 0) console.log(`[CloudSync] Flushing ${this.pendingQueue.size} pending items...`);
         for (const key of this.pendingQueue) this.pushToCloud(key);
         this.pendingQueue.clear();
     }
@@ -224,52 +252,92 @@ class CloudSync {
         try {
             this.setStatus('syncing');
             const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
+            console.log(`[CloudSync] Pushing ${localKey} to path: ${storagePath.path}/data/${docName}`);
+            
+            const dataToPush = JSON.parse(raw);
             await storagePath.collection('data').doc(docName).set({
-                data: JSON.parse(raw),
+                data: dataToPush,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            
+            // Set sync timestamp. Note: local is slightly ahead of server time usually,
+            // but next pull will use server's true timestamp.
             localStorage.setItem('cloudSync_ts_' + localKey, Date.now().toString());
             this.lastSyncTime = new Date();
             this.setStatus('synced');
             this.updateLastSyncUI();
-        } catch (e) { this.setStatus('error'); }
+            console.log(`[CloudSync] Successfully pushed ${localKey}`);
+        } catch (e) { 
+            console.error(`[CloudSync] pushToCloud Error for ${localKey}:`, e);
+            this.setStatus('error'); 
+        }
     }
 
     async pushAll() {
         if (!this.user || !this.db) return;
+        console.log('[CloudSync] Pushing all data to cloud...');
         for (const localKey of Object.keys(SYNC_COLLECTIONS)) {
             await this.pushToCloud(localKey);
         }
     }
 
     async pullFromCloud() {
-        if (!this.user || !this.db) return;
+        if (!this.user || !this.db) {
+            console.warn('[CloudSync] Cannot pull: User or DB not initialized.');
+            return;
+        }
         this.setStatus('syncing');
+        console.log('[CloudSync] Pulling data from cloud...');
         let pulledAny = false;
         try {
             const storagePath = this.businessId ? this.db.collection('shared_business').doc(this.businessId) : this.db.collection('users').doc(this.user.uid);
             for (const [localKey, docName] of Object.entries(SYNC_COLLECTIONS)) {
                 const snap = await storagePath.collection('data').doc(docName).get();
-                if (!snap.exists) continue;
+                if (!snap.exists) {
+                    console.log(`[CloudSync] No cloud data found for ${docName}`);
+                    continue;
+                }
+                
                 const cloud = snap.data();
                 const cloudTs = cloud.updatedAt ? cloud.updatedAt.toMillis() : 0;
                 const localTs = parseInt(localStorage.getItem('cloudSync_ts_' + localKey) || '0');
+                const localModifiedTs = parseInt(localStorage.getItem('localLastModified_' + localKey) || '0');
                 
                 // If local is empty, always pull. Otherwise compare timestamps.
-                const localData = localStorage.getItem(localKey);
-                const isLocalEmpty = !localData || localData === '[]' || localData === '{}';
+                const localDataRaw = localStorage.getItem(localKey);
+                const isLocalEmpty = !localDataRaw || localDataRaw === '[]' || localDataRaw === '{}';
 
                 if (isLocalEmpty || cloudTs > localTs) {
-                    localStorage.setItem(localKey, JSON.stringify(cloud.data));
+                    let localData = null;
+                    try { localData = JSON.parse(localDataRaw); } catch(e) {}
+                    
+                    // Conflict Detection: If local was modified AFTER the last sync, merge it.
+                    if (localModifiedTs > localTs && localData) {
+                        console.log(`[CloudSync] Conflict detected for ${localKey}. Merging local changes with cloud data.`);
+                        const merged = this.smartMerge(localData, cloud.data);
+                        localStorage.setItem(localKey, JSON.stringify(merged));
+                    } else {
+                        console.log(`[CloudSync] Updating ${localKey} (Cloud TS: ${cloudTs}, Local TS: ${localTs})`);
+                        localStorage.setItem(localKey, JSON.stringify(cloud.data));
+                    }
+                    
                     localStorage.setItem('cloudSync_ts_' + localKey, cloudTs.toString());
                     pulledAny = true;
+                } else {
+                    console.log(`[CloudSync] ${localKey} is already up to date.`);
                 }
             }
-            if (pulledAny) this.reloadAllManagers();
+            if (pulledAny) {
+                console.log('[CloudSync] New data pulled, reloading managers...');
+                this.reloadAllManagers();
+            }
             this.lastSyncTime = new Date();
             this.setStatus('synced');
             this.updateLastSyncUI();
-        } catch (e) { this.setStatus('error'); }
+        } catch (e) { 
+            console.error('[CloudSync] pullFromCloud Error:', e);
+            this.setStatus('error'); 
+        }
     }
 
     reloadAllManagers() {

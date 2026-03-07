@@ -44,31 +44,59 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Strategy: Network-First for local scripts, Stale-While-Revalidate for others
 self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
-    const isLocalScript = url.pathname.endsWith('.js') || url.pathname.endsWith('.html') || url.pathname.endsWith('.css');
+    // Only handle GET requests
+    if (event.request.method !== 'GET') return;
 
-    if (isLocalScript) {
+    const url = new URL(event.request.url);
+    
+    // Skip Firebase, Firestore, and other Google API requests
+    if (url.hostname.includes('firebase') || 
+        url.hostname.includes('googleapis') || 
+        url.hostname.includes('firestore')) {
+        return;
+    }
+
+    // Only handle http/https requests (skip chrome-extension, etc.)
+    if (!url.protocol.startsWith('http')) return;
+
+    const isLocalAsset = url.pathname.endsWith('.js') || 
+                         url.pathname.endsWith('.html') || 
+                         url.pathname.endsWith('.css') ||
+                         url.pathname.endsWith('.json') ||
+                         url.pathname.endsWith('.png') ||
+                         url.pathname.endsWith('.jpg') ||
+                         url.pathname.endsWith('.svg');
+
+    if (isLocalAsset) {
+        // Network-First strategy
         event.respondWith(
             fetch(event.request)
                 .then((networkResponse) => {
-                    return caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, networkResponse.clone());
-                        return networkResponse;
-                    });
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return networkResponse;
                 })
                 .catch(() => caches.match(event.request))
         );
     } else {
+        // Stale-While-Revalidate strategy
         event.respondWith(
             caches.match(event.request)
-                .then((response) => {
+                .then((cachedResponse) => {
                     const fetchPromise = fetch(event.request).then((networkResponse) => {
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, networkResponse.clone());
-                        });
+                        if (networkResponse && networkResponse.status === 200) {
+                            const responseToCache = networkResponse.clone();
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(event.request, responseToCache);
+                            });
+                        }
                         return networkResponse;
                     });
-                    return response || fetchPromise;
+                    return cachedResponse || fetchPromise;
                 })
         );
     }

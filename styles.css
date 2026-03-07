@@ -1981,6 +1981,63 @@ body.dark-mode .expiry-item {
    Responsive adjustments for new components
    ============================================================ */
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+        padding-bottom: 80px; /* Space for bottom nav */
+    }
+
+    .main-nav {
+        display: none !important; /* Hide header nav on mobile */
+    }
+
+    /* Mobile Bottom Navigation */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        padding: 8px 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 5px;
+        justify-content: flex-start;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    body.dark-mode .mobile-bottom-nav {
+        background: rgba(30, 30, 46, 0.9);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+    }
+
+    .mobile-bottom-nav .nav-tab {
+        flex: 0 0 auto;
+        padding: 8px 15px;
+        font-size: 0.8rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        white-space: nowrap;
+        border-radius: 20px;
+        backdrop-filter: none;
+    }
+
+    .mobile-bottom-nav .nav-tab.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    body.dark-mode .mobile-bottom-nav .nav-tab {
+        color: white;
+        border-color: rgba(255,255,255,0.1);
+    }
+
     .dashboard-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1997,6 +2054,11 @@ body.dark-mode .expiry-item {
         flex-direction: column;
         gap: 10px;
     }
+}
+
+.mobile-bottom-nav {
+    display: none;
+}
 
     .nav-tab {
         padding: 10px 14px;
