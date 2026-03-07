@@ -944,7 +944,9 @@
                     </div>
                 </div>
                 <div class="settings-section">
-                    <h3>Business Options</h3>
+                    <h3>System Updates</h3>
+                    <button class="btn btn-secondary" id="checkUpdateBtn" style="background:#4f46e5; color:white;">🔄 Check for Updates (v3.5)</button>
+                    <button class="btn btn-secondary" id="darkModeToggle">🌙 Toggle Dark Mode</button>
                     <button class="btn btn-secondary" id="printBtn">🖨️ Print Page</button>
                     <button class="btn btn-secondary" id="exportCSVBtn">📄 Export as CSV</button>
                 </div>
@@ -1203,6 +1205,26 @@
                 }
             });
         }
+
+        // Manual Update Button
+        document.getElementById('checkUpdateBtn')?.addEventListener('click', () => {
+            if (confirm('Checking for updates will clear the app cache and reload. Your data (Customers/Expenses) will NOT be deleted. Proceed?')) {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        for (let registration of registrations) {
+                            registration.unregister();
+                        }
+                        caches.keys().then(names => {
+                            for (let name of names) caches.delete(name);
+                            alert('Cache cleared! The app will now reload to v3.5.');
+                            window.location.reload(true);
+                        });
+                    });
+                } else {
+                    window.location.reload(true);
+                }
+            }
+        });
 
         // Hide when installed
         window.addEventListener('appinstalled', (evt) => {
