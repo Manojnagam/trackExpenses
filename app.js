@@ -72,6 +72,13 @@ class ExpenseTracker {
         // Load dark mode preference
         this.loadDarkMode();
         
+        // Toggle customer selection group based on type
+        document.getElementById('type').addEventListener('change', (e) => {
+            const group = document.getElementById('customerSelectionGroup');
+            if (group) group.style.display = e.target.value === 'Income' ? 'block' : 'none';
+            if (e.target.value === 'Income') this.populateCustomerDropdown();
+        });
+
         // Event listeners - Form
         document.getElementById('expenseForm').addEventListener('submit', (e) => this.handleSubmit(e));
         document.getElementById('cancelEdit').addEventListener('click', () => this.cancelEdit());
@@ -238,6 +245,7 @@ class ExpenseTracker {
             type: document.getElementById('type').value,
             date: document.getElementById('date').value,
             category: document.getElementById('category').value,
+            customerId: document.getElementById('transactionCustomer')?.value || '',
             description: document.getElementById('description').value,
             amount: parseFloat(document.getElementById('amount').value),
             notes: document.getElementById('notes').value
@@ -267,9 +275,20 @@ class ExpenseTracker {
         if (!expense) return;
 
         this.editingId = id;
-        document.getElementById('type').value = expense.type || 'Expense';
+        const type = expense.type || 'Expense';
+        document.getElementById('type').value = type;
         document.getElementById('date').value = expense.date;
         document.getElementById('category').value = expense.category;
+        
+        const custGroup = document.getElementById('customerSelectionGroup');
+        if (custGroup) {
+            custGroup.style.display = type === 'Income' ? 'block' : 'none';
+            if (type === 'Income') {
+                this.populateCustomerDropdown();
+                document.getElementById('transactionCustomer').value = expense.customerId || '';
+            }
+        }
+
         document.getElementById('description').value = expense.description;
         document.getElementById('amount').value = expense.amount;
         document.getElementById('notes').value = expense.notes || '';
@@ -287,6 +306,9 @@ class ExpenseTracker {
         document.getElementById('date').valueAsDate = new Date();
         document.getElementById('cancelEdit').style.display = 'none';
         document.querySelector('.btn-primary').textContent = 'Add Transaction';
+        
+        const custGroup = document.getElementById('customerSelectionGroup');
+        if (custGroup) custGroup.style.display = 'none';
     }
 
     deleteExpense(id) {
@@ -363,6 +385,15 @@ class ExpenseTracker {
             const amountColor = type === 'Income' ? 'var(--secondary-color)' : 'var(--danger-color)';
             const typeBadge = type === 'Income' ? 'income-badge' : 'expense-badge';
             
+            // Get customer name if available
+            let customerLabel = '';
+            if (expense.customerId && typeof customerManager !== 'undefined') {
+                const customer = customerManager.customers.find(c => c.id === expense.customerId);
+                if (customer) {
+                    customerLabel = `<div style="font-size: 0.85rem; color: var(--primary-color); margin-bottom: 4px; font-weight: 600;">👤 Paid by: ${escapeHtml(customer.name)}</div>`;
+                }
+            }
+
             return `
                 <div class="expense-item">
                     <div class="expense-header">
@@ -371,6 +402,7 @@ class ExpenseTracker {
                                 <span class="expense-category ${typeBadge}">${escapeHtml(type)}</span>
                                 <span class="expense-category">${escapeHtml(expense.category)}</span>
                             </div>
+                            ${customerLabel}
                             <div class="expense-description">${escapeHtml(expense.description)}</div>
                             <div class="expense-date">${formattedDate}</div>
                         </div>
@@ -396,6 +428,26 @@ class ExpenseTracker {
         }
 
         expensesList.innerHTML = html;
+    }
+
+    populateCustomerDropdown() {
+        const select = document.getElementById('transactionCustomer');
+        if (!select || typeof customerManager === 'undefined') return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">-- Select Customer --</option>';
+        
+        // Sort customers alphabetically by name
+        const sortedCustomers = [...customerManager.customers].sort((a, b) => a.name.localeCompare(b.name));
+        
+        sortedCustomers.forEach(cust => {
+            const option = document.createElement('option');
+            option.value = cust.id;
+            option.textContent = cust.name;
+            select.appendChild(option);
+        });
+        
+        select.value = currentValue;
     }
 
     updateStats() {
