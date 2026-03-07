@@ -7,12 +7,12 @@
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="styles.css?v=3.5">
+    <link rel="stylesheet" href="styles.css?v=4.0">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-    <script>const CURRENT_APP_VERSION = '3.5';</script>
+    <script>const CURRENT_APP_VERSION = '4.0';</script>
     <div class="container">
         <!-- Version Indicator for Debugging -->
         <div id="versionCheck" style="display:none; position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; text-align:center; padding:5px; font-size:0.7rem; z-index:10001;">
@@ -27,7 +27,7 @@
             <div class="header-content">
                 <div>
                     <h1>🍎 Dharani's</h1>
-                    <p class="subtitle">Personalized Wellness & Nutrition Tracking <span id="verLabel" style="font-size:0.7rem; opacity:0.6; background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:10px; margin-left:5px;">v3.5</span></p>
+                    <p class="subtitle">Personalized Wellness & Nutrition Tracking <span id="verLabel" style="font-size:0.7rem; opacity:0.6; background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:10px; margin-left:5px;">v4.0</span></p>
                 </div>
                 <div class="header-actions">
                     <button class="btn-icon" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
@@ -945,7 +945,7 @@
                 </div>
                 <div class="settings-section">
                     <h3>System Updates</h3>
-                    <button class="btn btn-secondary" id="checkUpdateBtn" style="background:#4f46e5; color:white;">🔄 Check for Updates (v3.5)</button>
+                    <button class="btn btn-secondary" id="checkUpdateBtn" style="background:#4f46e5; color:white;">🔄 Check for Updates (v4.0)</button>
                     <button class="btn btn-secondary" id="darkModeToggle">🌙 Toggle Dark Mode</button>
                     <button class="btn btn-secondary" id="printBtn">🖨️ Print Page</button>
                     <button class="btn btn-secondary" id="exportCSVBtn">📄 Export as CSV</button>
@@ -1121,16 +1121,16 @@
         <button class="nav-tab" data-tab="emi">💳 EMI</button>
     </div>
 
-    <script src="app.js?v=3.5"></script>
-    <script src="inventory.js?v=3.5"></script>
-    <script src="customers.js?v=3.5"></script>
-    <script src="coaches.js?v=3.5"></script>
-    <script src="dashboard.js?v=3.5"></script>
-    <script src="insights.js?v=3.5"></script>
+    <script src="app.js?v=4.0"></script>
+    <script src="inventory.js?v=4.0"></script>
+    <script src="customers.js?v=4.0"></script>
+    <script src="coaches.js?v=4.0"></script>
+    <script src="dashboard.js?v=4.0"></script>
+    <script src="insights.js?v=4.0"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-sync.js?v=3.5"></script>
+    <script src="firebase-sync.js?v=4.0"></script>
     <script>
         // Version Check UI Toggle
         window.addEventListener('DOMContentLoaded', () => {
@@ -1143,14 +1143,14 @@
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=3.5')
+                navigator.serviceWorker.register('sw.js?v=4.0')
                     .then(reg => {
                         console.log('Service Worker Registered');
                         reg.onupdatefound = () => {
                             const installingWorker = reg.installing;
                             installingWorker.onstatechange = () => {
                                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    alert('New update (v3.5) is ready! The app will now reload to apply the new mobile navigation.');
+                                    alert('New update (v4.0) is ready! The app will now reload to apply the new mobile navigation.');
                                     window.location.reload();
                                 }
                             };
@@ -1216,7 +1216,7 @@
                         }
                         caches.keys().then(names => {
                             for (let name of names) caches.delete(name);
-                            alert('Cache cleared! The app will now reload to v3.5.');
+                            alert('Cache cleared! The app will now reload to v4.0.');
                             window.location.reload(true);
                         });
                     });

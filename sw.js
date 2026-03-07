@@ -1,18 +1,25 @@
-const CACHE_NAME = 'nutrition-mgr-v3.5';
+const CACHE_NAME = 'nutrition-mgr-v4.0';
 const ASSETS = [
     './',
     './index.html',
-    './styles.css?v=3.5',
-    './app.js?v=3.5',
-    './inventory.js?v=3.5',
-    './customers.js?v=3.5',
-    './coaches.js?v=3.5',
-    './dashboard.js?v=3.5',
-    './insights.js?v=3.5',
-    './firebase-sync.js?v=3.5',
+    './styles.css?v=4.0',
+    './app.js?v=4.0',
+    './inventory.js?v=4.0',
+    './customers.js?v=4.0',
+    './coaches.js?v=4.0',
+    './dashboard.js?v=4.0',
+    './insights.js?v=4.0',
+    './firebase-sync.js?v=4.0',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
+
+// Force skip waiting
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 // Install Service Worker
 self.addEventListener('install', (event) => {
