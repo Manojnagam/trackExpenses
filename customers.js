@@ -267,11 +267,9 @@ class CustomerManager {
         const height = document.getElementById('customerHeight')?.value || '';
         const address = document.getElementById('customerAddress')?.value.trim() || '';
         const todayStr = new Date().toISOString().split('T')[0];
-        const packStart = document.getElementById('customerPackStart')?.value || todayStr;
-        const packDuration = parseInt(document.getElementById('customerPackDuration')?.value || '30');
-        const goal = document.getElementById('customerGoal').value;
-        const plan = document.getElementById('customerPlan').value;
         const joinDate = document.getElementById('customerJoinDate')?.value || todayStr;
+        const packStart = document.getElementById('customerPackStart')?.value || joinDate;
+        const packDuration = parseInt(document.getElementById('customerPackDuration')?.value || '30');
         const notes = document.getElementById('customerNotes').value.trim();
 
         // Allowing all fields to be optional as requested
@@ -821,7 +819,7 @@ class CustomerManager {
             for (let d = 1; d <= daysInMonth; d++) {
                 html += `<th>${d}</th>`;
             }
-            html += '<th>Month</th><th>Left</th></tr></thead><tbody>';
+            html += '<th>Month (Days)</th><th>Left</th></tr></thead><tbody>';
 
             activeCustomers.forEach(c => {
                 const status = this.getPackStatus(c);
@@ -840,11 +838,11 @@ class CustomerManager {
                 }
 
                 html += `<tr><td class="attendance-customer-name">${escapeHtml(c.name)}</td>`;
-                let monthTotal = 0;
+                let monthDaysPresent = 0;
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     const dailyVisits = this.attendance.filter(a => a.customerId === c.id && a.date === dateStr).length;
-                    monthTotal += dailyVisits;
+                    if (dailyVisits > 0) monthDaysPresent++;
 
                     let cellContent = '';
                     if (dailyVisits === 1) cellContent = '&#10003;';
@@ -855,7 +853,7 @@ class CustomerManager {
                         style="${dailyVisits === 2 ? 'background:rgba(80,200,120,0.3); font-weight:bold;' : ''}"
                         data-customer-id="${c.id}" data-date="${dateStr}">${cellContent}</td>`;
                 }
-                html += `<td class="attendance-total">${monthTotal}</td>
+                html += `<td class="attendance-total">${monthDaysPresent}</td>
                         <td style="font-weight:700; color:${leftColor}; text-align:center;">${leftDisplay}</td></tr>`;
                 });
             html += '</tbody></table></div>';
@@ -1273,10 +1271,12 @@ class CustomerManager {
         // Fallback: If packStart is missing, use joinDate. If that's missing too, use earliest attendance or 2000-01-01
         const packStartStr = customer.packStart || customer.joinDate || '2000-01-01';
         
-        // Count how many times they've attended since the pack started
-        const attendedSinceStart = this.attendance.filter(a => 
-            a.customerId === customer.id && a.date >= packStartStr
-        ).length;
+        // Count how many DISTINCT DAYS they've attended since the pack started
+        const attendedDates = new Set(this.attendance
+            .filter(a => a.customerId === customer.id && a.date >= packStartStr)
+            .map(a => a.date)
+        );
+        const attendedSinceStart = attendedDates.size;
 
         const packSize = parseInt(customer.packDuration) || 30;
         const remaining = Math.max(0, packSize - attendedSinceStart);
