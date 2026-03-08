@@ -49,12 +49,59 @@ class CloudSync {
         window.addEventListener('online', () => { this.online = true; this.flushPending(); this.updateStatusUI(); });
         window.addEventListener('offline', () => { this.online = false; this.updateStatusUI(); });
         
+        // Auto-pull when window is focused
+        window.addEventListener('focus', () => {
+            if (this.user) this.pullFromCloud();
+        });
+
         // Ensure data is synced when the page is closed/hidden
         window.addEventListener('pagehide', () => {
             this.flushPending();
         });
 
         this.injectUI();
+        this.setupRealtimeListener();
+    }
+
+    setupRealtimeListener() {
+        if (!this.db || !this.businessId) return;
+        
+        // Listen for changes in the shared business data
+        const storagePath = this.db.collection('shared_business').doc(this.businessId);
+        storagePath.collection('data').onSnapshot(snapshot => {
+            if (this.syncing) return; // Don't pull while we are currently pushing
+            
+            let changed = false;
+            snapshot.docChanges().forEach(change => {
+                if (change.type === "added" || change.type === "modified") {
+                    const docName = change.doc.id;
+                    const cloudData = change.doc.data();
+                    
+                    // Find the corresponding local key
+                    const localKey = Object.keys(SYNC_COLLECTIONS).find(k => SYNC_COLLECTIONS[k] === docName);
+                    if (!localKey) return;
+
+                    const cloudTs = cloudData.updatedAt ? cloudData.updatedAt.toMillis() : 0;
+                    const localTs = parseInt(localStorage.getItem('cloudSync_ts_' + localKey) || '0');
+
+                    if (cloudTs > localTs) {
+                        console.log(`[CloudSync] Real-time update detected for ${localKey}`);
+                        localStorage.setItem(localKey, JSON.stringify(cloudData.data));
+                        localStorage.setItem('cloudSync_ts_' + localKey, cloudTs.toString());
+                        changed = true;
+                    }
+                }
+            });
+
+            if (changed) {
+                console.log('[CloudSync] Applying real-time changes...');
+                this.reloadAllManagers();
+                this.lastSyncTime = new Date();
+                this.updateLastSyncUI();
+            }
+        }, err => {
+            console.error('[CloudSync] Real-time listener error:', err);
+        });
     }
 
     onAuthChanged(user) {
@@ -62,7 +109,10 @@ class CloudSync {
         this.updateAuthUI();
         if (user) {
             this.hookSaveMethods();
-            setTimeout(() => this.pullFromCloud(), 1000);
+            setTimeout(() => {
+                this.pullFromCloud();
+                this.setupRealtimeListener();
+            }, 1000);
         } else {
             this.unhookSaveMethods();
         }

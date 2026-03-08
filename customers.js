@@ -1268,12 +1268,21 @@ class CustomerManager {
         // If they have no duration, we can't calculate "left"
         if (!customer.packDuration) return null;
 
-        // Fallback: If packStart is missing, use joinDate. If that's missing too, use earliest attendance or 2000-01-01
-        const packStartStr = customer.packStart || customer.joinDate || '2000-01-01';
+        // Smart Pack Start: For old data, the 'packStart' might be later than the attendance records.
+        // We find the earliest attendance date for this customer to ensure we don't miss anything.
+        const custAttendance = this.attendance.filter(a => a.customerId === customer.id);
+        const earliestAttendance = custAttendance.length > 0 
+            ? custAttendance.map(a => a.date).sort()[0] 
+            : '9999-99-99';
+
+        // Use the earlier of packStart, joinDate, or earliest recorded attendance
+        const packStartStr = [customer.packStart, customer.joinDate, earliestAttendance]
+            .filter(d => d && d !== '2000-01-01')
+            .sort()[0] || '2000-01-01';
         
         // Count how many DISTINCT DAYS they've attended since the pack started
-        const attendedDates = new Set(this.attendance
-            .filter(a => a.customerId === customer.id && a.date >= packStartStr)
+        const attendedDates = new Set(custAttendance
+            .filter(a => a.date >= packStartStr)
             .map(a => a.date)
         );
         const attendedSinceStart = attendedDates.size;
@@ -1285,7 +1294,8 @@ class CustomerManager {
             daysLeft: remaining,
             isExpired: remaining <= 0,
             total: packSize,
-            used: attendedSinceStart
+            used: attendedSinceStart,
+            startDate: packStartStr
         };
     }
 
