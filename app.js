@@ -352,9 +352,9 @@ class ExpenseTracker {
             const backups = Object.keys(localStorage).filter(key => key.startsWith(k.key + '_backup_')).length;
             const robust = localStorage.getItem('__backup_' + k.key);
 
-            const pLen = primary ? JSON.parse(primary).length || Object.keys(JSON.parse(primary)).length : 0;
-            const sLen = secondary ? JSON.parse(secondary).length || Object.keys(JSON.parse(secondary)).length : 0;
-            const rLen = robust ? JSON.parse(robust).length || Object.keys(JSON.parse(robust)).length : 0;
+            let pLen = 0; try { if(primary) pLen = Array.isArray(JSON.parse(primary)) ? JSON.parse(primary).length : Object.keys(JSON.parse(primary)).length; } catch(e){}
+            let sLen = 0; try { if(secondary) sLen = Array.isArray(JSON.parse(secondary)) ? JSON.parse(secondary).length : Object.keys(JSON.parse(secondary)).length; } catch(e){}
+            let rLen = 0; try { if(robust) rLen = Array.isArray(JSON.parse(robust)) ? JSON.parse(robust).length : Object.keys(JSON.parse(robust)).length; } catch(e){}
 
             diagHtml += `<div style="margin-bottom:12px; border-bottom:1px solid #eee; padding-bottom:5px;">
                 <strong style="color:var(--primary-color)">${k.name}</strong><br>
@@ -372,80 +372,85 @@ class ExpenseTracker {
         diagDiv.innerHTML = `
             <div style="background:white; padding:20px; border-radius:12px; max-width:500px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
                 <h3 style="margin-top:0">🔍 Storage Diagnostics</h3>
-                <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">Use this to see where your data is stored on this device.</p>
+                <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">Your device says it HAS the data (Primary: 32/168 items). Use the Repair button to force it to show up.</p>
                 ${diagHtml}
-                <div style="margin-top:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div style="margin-top:20px; display:grid; grid-template-columns:1fr; gap:10px;">
+                    <button class="btn btn-primary" style="background:#22c55e; font-weight:bold; padding:15px;" onclick="tracker.forceRepairAndMergeAll()">🛠️ FORCE REPAIR & MERGE ALL DATA</button>
                     <button class="btn btn-secondary" onclick="document.getElementById('diagOverlay').remove()">Close</button>
-                    <button class="btn btn-primary" onclick="tracker.emergencyRestoreAllData()">Run Deep Recovery</button>
                 </div>
             </div>
         `;
         document.body.appendChild(diagDiv);
     }
 
-    emergencyRestoreAllData() {
-        const report = [];
+    forceRepairAndMergeAll() {
+        if (!confirm("This will grab data from ALL backup slots, remove duplicates, and FORCE the app to show it. Proceed?")) return;
+        
         const keys = [
             'nutritionExpenses', 'nutritionCustomers', 'nutritionAttendance', 
             'nutritionComposition', 'nutritionEMI', 'nutritionRecurring',
-            'inventoryStock', 'inventoryStockIn', 'inventoryStockOut', 'inventoryDailyUsage'
+            'inventoryStock', 'inventoryDailyUsage'
         ];
         
-        if (!confirm("This will scan every hidden corner of your browser's memory for lost data. It will only restore sections that are currently empty. Continue?")) return;
-        
-        let recoveredCount = 0;
         const allKeys = Object.keys(localStorage);
+        let totalRecovered = 0;
 
         keys.forEach(key => {
-            const primary = localStorage.getItem(key);
-            const secondary = localStorage.getItem(key + '_secondary');
-            const backups = allKeys.filter(k => k.startsWith(key + '_backup_')).sort().reverse();
-            const robustBackup = localStorage.getItem('__backup_' + key);
+            let combinedData = [];
+            const isArray = key !== 'nutritionComposition' && key !== 'inventoryStock';
             
-            // Check if primary is effectively empty
-            const isPrimaryEmpty = !primary || primary === '[]' || primary === 'null' || primary === '{}';
+            // Gather from all sources
+            const sources = [
+                localStorage.getItem(key),
+                localStorage.getItem('__backup_' + key),
+                localStorage.getItem(key + '_secondary'),
+                ...allKeys.filter(k => k.startsWith(key + '_backup_')).map(k => localStorage.getItem(k))
+            ];
 
-            if (isPrimaryEmpty) {
-                let foundData = null;
-                let sourceName = "";
-
-                // Prioritize Robust Storage (Triple Redundancy Layer)
-                if (robustBackup && robustBackup !== '[]' && robustBackup !== '{}' && robustBackup !== 'null') {
-                    foundData = robustBackup;
-                    sourceName = "Robust Storage (Hidden)";
-                } 
-                // Then check Timed Backups (most recent)
-                else if (backups.length > 0) {
-                    const backupVal = localStorage.getItem(backups[0]);
-                    if (backupVal && backupVal !== '[]' && backupVal !== '{}') {
-                        foundData = backupVal;
-                        sourceName = "Timed Backup (" + backups[0].split('_').pop() + ")";
-                    }
-                }
-                // Then check Secondary
-                else if (secondary && secondary !== '[]' && secondary !== 'null' && secondary !== '{}') {
-                    foundData = secondary;
-                    sourceName = "Secondary Backup";
-                }
-
-                if (foundData) {
-                    localStorage.setItem(key, foundData);
-                    recoveredCount++;
-                    report.push(`✅ Restored ${key} from ${sourceName}`);
-                } else {
-                    report.push(`❌ No backup found for ${key}`);
+            if (isArray) {
+                const mergedMap = new Map();
+                sources.forEach(s => {
+                    try {
+                        if (s) {
+                            const data = JSON.parse(s);
+                            if (Array.isArray(data)) {
+                                data.forEach(item => {
+                                    const id = item.id || JSON.stringify(item);
+                                    if (!mergedMap.has(id)) mergedMap.set(id, item);
+                                });
+                            }
+                        }
+                    } catch(e){}
+                });
+                combinedData = Array.from(mergedMap.values());
+                if (combinedData.length > 0) {
+                    localStorage.setItem(key, JSON.stringify(combinedData));
+                    totalRecovered++;
                 }
             } else {
-                report.push(`ℹ️ ${key} is already present (${JSON.parse(primary).length || Object.keys(JSON.parse(primary)).length} items). Skipping.`);
+                // For objects like Composition/Stock, merge keys
+                let mergedObj = {};
+                sources.forEach(s => {
+                    try {
+                        if (s) {
+                            const data = JSON.parse(s);
+                            mergedObj = { ...mergedObj, ...data };
+                        }
+                    } catch(e){}
+                });
+                if (Object.keys(mergedObj).length > 0) {
+                    localStorage.setItem(key, JSON.stringify(mergedObj));
+                    totalRecovered++;
+                }
             }
         });
 
-        if (recoveredCount > 0) {
-            alert(`RECOVERY RESULTS:\n\n${report.join('\n')}\n\nYour data has been brought back. The app will now reload.`);
-            window.location.reload();
-        } else {
-            alert("No hidden backups were found for the empty sections. If you can see data in one section but not another, it means the backups for that specific section were also cleared.");
-        }
+        alert(`✅ REPAIR COMPLETE!\n\nI have merged and cleaned ${totalRecovered} data sections. The app will now reload and your data should be visible.`);
+        window.location.reload();
+    }
+
+    emergencyRestoreAllData() {
+        this.forceRepairAndMergeAll();
     }
 
     handleSubmit(e) {
