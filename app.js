@@ -415,6 +415,7 @@ class ExpenseTracker {
                             const data = JSON.parse(s);
                             if (Array.isArray(data)) {
                                 data.forEach(item => {
+                                    // Use ID if exists, otherwise use stringified item as key
                                     const id = item.id || JSON.stringify(item);
                                     if (!mergedMap.has(id)) mergedMap.set(id, item);
                                 });
@@ -426,6 +427,7 @@ class ExpenseTracker {
                 if (combinedData.length > 0) {
                     localStorage.setItem(key, JSON.stringify(combinedData));
                     totalRecovered++;
+                    console.log(`[Repair] Merged ${combinedData.length} items for ${key}`);
                 }
             } else {
                 // For objects like Composition/Stock, merge keys
@@ -441,11 +443,18 @@ class ExpenseTracker {
                 if (Object.keys(mergedObj).length > 0) {
                     localStorage.setItem(key, JSON.stringify(mergedObj));
                     totalRecovered++;
+                    console.log(`[Repair] Merged ${Object.keys(mergedObj).length} keys for ${key}`);
                 }
             }
         });
 
         alert(`✅ REPAIR COMPLETE!\n\nI have merged and cleaned ${totalRecovered} data sections. The app will now reload and your data should be visible.`);
+        
+        // Force refresh all globals before reload just in case
+        if (window.cloudSync && typeof window.cloudSync.reloadAllManagers === 'function') {
+            window.cloudSync.reloadAllManagers();
+        }
+        
         window.location.reload();
     }
 
@@ -1690,13 +1699,29 @@ class ExpenseTracker {
     }
 }
 
-// Initialize the tracker when page loads
+// Initialize all managers when page loads
 let tracker;
 let customerManager;
 let coachManager;
 let dashboardManager;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialize Tracker (Finance)
     tracker = new ExpenseTracker();
+    
+    // 2. Initialize Customers
+    if (typeof CustomerManager !== 'undefined') {
+        customerManager = new CustomerManager();
+    }
+    
+    // 3. Initialize Coaches
+    if (typeof CoachManager !== 'undefined') {
+        coachManager = new CoachManager();
+    }
+    
+    // 4. Initialize Dashboard (Last)
+    if (typeof DashboardManager !== 'undefined') {
+        dashboardManager = new DashboardManager();
+    }
 });
 
