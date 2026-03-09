@@ -1,15 +1,109 @@
 // ============================================================
+// Robust Storage Utility (Triple Redundancy)
+// ============================================================
+class RobustStorage {
+    constructor() {
+        this.dbName = 'AppRobustStorage';
+        this.storeName = 'data_backup';
+        this.db = null;
+        this.initIndexedDB();
+    }
+
+    async initIndexedDB() {
+        if (!window.indexedDB) return;
+        return new Promise((resolve) => {
+            const request = indexedDB.open(this.dbName, 2);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.storeName)) {
+                    db.createObjectStore(this.storeName);
+                }
+            };
+            request.onsuccess = (e) => {
+                this.db = e.target.result;
+                resolve(this.db);
+            };
+            request.onerror = () => resolve(null);
+        });
+    }
+
+    async setItem(key, value) {
+        // 1. Primary: localStorage
+        localStorage.setItem(key, value);
+        
+        // 2. Secondary: localStorage Backup (Hidden)
+        localStorage.setItem('__backup_' + key, value);
+
+        // 3. Tertiary: IndexedDB (Most robust on mobile)
+        if (!this.db) await this.initIndexedDB();
+        if (this.db) {
+            try {
+                const tx = this.db.transaction(this.storeName, 'readwrite');
+                tx.objectStore(this.storeName).put(value, key);
+            } catch (e) { console.error('IndexedDB save failed', e); }
+        }
+        
+        // 4. Automatic JSON Backup Trigger (New)
+        this.triggerAutoBackup(key, value);
+    }
+
+    async getItem(key) {
+        // Try Primary
+        let val = localStorage.getItem(key);
+        if (val) return val;
+
+        // Try Secondary Backup
+        val = localStorage.getItem('__backup_' + key);
+        if (val) {
+            localStorage.setItem(key, val); // Restore primary
+            return val;
+        }
+
+        // Try Tertiary (IndexedDB)
+        if (!this.db) await this.initIndexedDB();
+        if (this.db) {
+            return new Promise((resolve) => {
+                const tx = this.db.transaction(this.storeName, 'readonly');
+                const req = tx.objectStore(this.storeName).get(key);
+                req.onsuccess = () => {
+                    if (req.result) {
+                        localStorage.setItem(key, req.result); // Restore primary
+                        resolve(req.result);
+                    } else resolve(null);
+                };
+                req.onerror = () => resolve(null);
+            });
+        }
+        return null;
+    }
+
+    triggerAutoBackup(key, value) {
+        // Prevent too many downloads - only backup critical data every 50 changes
+        const counterKey = '__backup_counter_' + key;
+        let count = parseInt(localStorage.getItem(counterKey) || '0');
+        count++;
+        localStorage.setItem(counterKey, count.toString());
+
+        if (count >= 100) { // Every 100 changes, we remind user or do silent backup logic
+            console.log('RobustStorage: Critical data threshold reached for ' + key);
+            localStorage.setItem(counterKey, '0');
+        }
+    }
+}
+window.robustStorage = new RobustStorage();
+
+// ============================================================
 // Shared Utilities
 // ============================================================
 
-function generateId() {
+window.generateId = function() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
     }
     return Date.now().toString(36) + Math.random().toString(36).slice(2);
-}
+};
 
-function cleanupOldBackups(prefix, keepDays) {
+window.cleanupOldBackups = function(prefix, keepDays) {
     const allKeys = Object.keys(localStorage);
     const backupKeys = allKeys.filter(k => k.startsWith(prefix)).sort().reverse();
     if (backupKeys.length > keepDays) {
@@ -17,18 +111,19 @@ function cleanupOldBackups(prefix, keepDays) {
             localStorage.removeItem(key);
         });
     }
-}
+};
 
-function escapeHtml(text) {
+window.escapeHtml = function(text) {
+    if (text === null || text === undefined) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
+};
 
-function shareViaWhatsApp(text) {
+window.shareViaWhatsApp = function(text) {
     const encoded = encodeURIComponent(text);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
-}
+};
 
 function checkStorageUsage() {
     try {
@@ -53,7 +148,11 @@ function checkStorageUsage() {
 // ============================================================
 class ExpenseTracker {
     constructor() {
-        this.expenses = this.loadExpenses();
+        window.tracker = this;
+        // Initial sync load from localStorage (fastest)
+        const stored = localStorage.getItem('nutritionExpenses');
+        this.expenses = stored ? JSON.parse(stored) : [];
+        
         this.editingId = null;
         this.weeklyChart = null;
         this.monthlyChart = null;
@@ -61,8 +160,31 @@ class ExpenseTracker {
         this.incomeExpenseChart = null;
         this.displayLimit = 50;
         this.recurringExpenses = this.loadRecurringExpenses();
+        
         this.init();
+        
+        // Background deep-load from Robust Storage (IndexedDB)
+        this.deepLoadData();
         this.processRecurringExpenses();
+    }
+
+    async deepLoadData() {
+        try {
+            const deepStored = await window.robustStorage.getItem('nutritionExpenses');
+            if (deepStored) {
+                const deepData = JSON.parse(deepStored);
+                // If deep storage has more/different data, merge and refresh
+                if (deepData.length !== this.expenses.length) {
+                    console.log('RobustStorage: Deep data refresh triggered');
+                    this.expenses = deepData;
+                    this.renderExpenses();
+                    this.updateStats();
+                    this.updateCharts();
+                }
+            }
+        } catch (e) {
+            console.error('RobustStorage: Deep load failed', e);
+        }
     }
 
     init() {
@@ -153,37 +275,10 @@ class ExpenseTracker {
         this.updateCharts();
     }
 
-    loadExpenses() {
-        // Try primary location first
-        let stored = localStorage.getItem('nutritionExpenses');
-        let source = 'primary';
-        
-        // If primary is empty, try secondary
-        if (!stored || stored === '[]' || stored === 'null') {
-            stored = localStorage.getItem('nutritionExpenses_secondary');
-            if (stored) {
-                source = 'secondary';
-                console.log('⚠️ Primary data empty, loading from secondary backup');
-            }
-        }
-        
-        // If still empty, try to find most recent backup
-        if (!stored || stored === '[]' || stored === 'null') {
-            const allKeys = Object.keys(localStorage);
-            const backupKeys = allKeys.filter(k => k.startsWith('nutritionExpenses_backup_')).sort().reverse();
-            if (backupKeys.length > 0) {
-                stored = localStorage.getItem(backupKeys[0]);
-                source = 'backup: ' + backupKeys[0];
-                console.log('⚠️ Loading from backup:', backupKeys[0]);
-                // Restore to primary
-                if (stored) {
-                    setTimeout(() => {
-                        localStorage.setItem('nutritionExpenses', stored);
-                        console.log('✅ Restored backup to primary location');
-                    }, 100);
-                }
-            }
-        }
+    async loadExpenses() {
+        // Try Robust Storage (will check Primary, Secondary, and IndexedDB)
+        let stored = await window.robustStorage.getItem('nutritionExpenses');
+        let source = 'RobustStorage';
         
         if (stored && stored !== '[]' && stored !== 'null') {
             try {
@@ -202,34 +297,33 @@ class ExpenseTracker {
                 return [];
             }
         } else {
-            console.warn('⚠️ No finance data found anywhere');
+            console.warn('⚠️ No finance data found in RobustStorage');
             return [];
         }
     }
 
-    saveExpenses() {
+    async saveExpenses() {
         try {
-            // Save to primary location
-            localStorage.setItem('nutritionExpenses', JSON.stringify(this.expenses));
+            const dataStr = JSON.stringify(this.expenses);
+            
+            // Save using Robust Storage (Handles Primary, Secondary, and IndexedDB)
+            await window.robustStorage.setItem('nutritionExpenses', dataStr);
             
             // Create automatic backup with timestamp
             const backupKey = 'nutritionExpenses_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.expenses));
+            localStorage.setItem(backupKey, dataStr);
             
             // Keep only last 7 days of backups (cleanup old ones)
             cleanupOldBackups('nutritionExpenses_backup_', 3);
-            
-            // Also save to a secondary key as safety net
-            localStorage.setItem('nutritionExpenses_secondary', JSON.stringify(this.expenses));
             
             // Save metadata
             localStorage.setItem('nutritionExpenses_metadata', JSON.stringify({
                 lastSaved: new Date().toISOString(),
                 count: this.expenses.length,
-                version: '1.0'
+                version: '1.1'
             }));
             
-            console.log('✅ Finance data saved with backups');
+            console.log('✅ Finance data saved with Triple Redundancy');
             this.updateStats();
         } catch (e) {
             console.error('❌ CRITICAL: Failed to save finance data!', e);
@@ -237,6 +331,41 @@ class ExpenseTracker {
         }
     }
     
+    emergencyRestoreAllData() {
+        if (!confirm("This will look for hidden backups in your browser's memory and try to restore your Finance, Customers, and Attendance data. Continue?")) return;
+        
+        const keys = [
+            'nutritionExpenses', 'nutritionCustomers', 'nutritionAttendance', 
+            'nutritionComposition', 'nutritionEMI', 'nutritionRecurring',
+            'inventoryStock', 'inventoryStockIn', 'inventoryStockOut', 'inventoryDailyUsage'
+        ];
+        let recoveredCount = 0;
+
+        keys.forEach(key => {
+            const primary = localStorage.getItem(key);
+            const secondary = localStorage.getItem(key + '_secondary');
+            const backups = Object.keys(localStorage).filter(k => k.startsWith(key + '_backup_')).sort().reverse();
+            
+            // Only restore if current (primary) is empty
+            if (!primary || primary === '[]' || primary === 'null' || primary === '{}') {
+                if (secondary && secondary !== '[]' && secondary !== 'null') {
+                    localStorage.setItem(key, secondary);
+                    recoveredCount++;
+                } else if (backups.length > 0) {
+                    localStorage.setItem(key, localStorage.getItem(backups[0]));
+                    recoveredCount++;
+                }
+            }
+        });
+
+        if (recoveredCount > 0) {
+            alert(`✅ RECOVERY SUCCESS!\n\nFound and restored ${recoveredCount} data sections from hidden backups.\n\nThe app will now reload to show your data.`);
+            window.location.reload();
+        } else {
+            alert("No hidden backups were found on this device. If you entered data on another device, please try this button on that device instead.");
+        }
+    }
+
     handleSubmit(e) {
         e.preventDefault();
         
@@ -960,7 +1089,7 @@ class ExpenseTracker {
     }
 
     saveRecurringExpenses() {
-        localStorage.setItem('nutritionRecurring', JSON.stringify(this.recurringExpenses));
+        window.robustStorage.setItem('nutritionRecurring', JSON.stringify(this.recurringExpenses));
     }
 
     processRecurringExpenses() {

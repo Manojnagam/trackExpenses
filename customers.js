@@ -2,17 +2,70 @@
 // Customer Database & Attendance Tracking
 // ============================================================
 
+// ============================================================
+// Shared Utilities Fallback
+// ============================================================
+const escapeHtml = window.escapeHtml || function(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+};
+window.escapeHtml = escapeHtml;
+
 class CustomerManager {
     constructor() {
         window.customerManager = this;
-        this.customers = this.loadCustomers();
-        this.attendance = this.loadAttendance();
-        this.emiPlans = this.loadEMI();
-        this.composition = this.loadComposition();
+        // Initial sync load from localStorage (fastest)
+        this.customers = JSON.parse(localStorage.getItem('nutritionCustomers') || '[]');
+        this.attendance = JSON.parse(localStorage.getItem('nutritionAttendance') || '[]');
+        this.emiPlans = JSON.parse(localStorage.getItem('nutritionEMI') || '[]');
+        this.composition = JSON.parse(localStorage.getItem('nutritionComposition') || '{}');
+
         this.editingCustomerId = null;
         this.editingEMIId = null;
         this.currentCompCustomerId = null;
         this.init();
+        
+        // Deep Load in background
+        this.deepLoadData();
+    }
+
+    async deepLoadData() {
+        try {
+            const keys = ['nutritionCustomers', 'nutritionAttendance', 'nutritionEMI', 'nutritionComposition'];
+            let changed = false;
+
+            for (const key of keys) {
+                const deepStored = await window.robustStorage.getItem(key);
+                if (deepStored) {
+                    const deepData = JSON.parse(deepStored);
+                    const localData = localStorage.getItem(key);
+                    if (deepStored !== localData) {
+                        this[this.getPropForKey(key)] = deepData;
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed) {
+                console.log('CustomerManager: Deep data refresh triggered');
+                this.renderCustomers();
+                this.renderDailyCheckin();
+                this.renderAttendance();
+                this.renderAllCompositions();
+            }
+        } catch (e) {
+            console.error('CustomerManager: Deep load failed', e);
+        }
+    }
+
+    getPropForKey(key) {
+        if (key === 'nutritionCustomers') return 'customers';
+        if (key === 'nutritionAttendance') return 'attendance';
+        if (key === 'nutritionEMI') return 'emiPlans';
+        if (key === 'nutritionComposition') return 'composition';
+        return '';
     }
 
     init() {
@@ -183,7 +236,7 @@ class CustomerManager {
 
     saveCustomers() {
         try {
-            localStorage.setItem('nutritionCustomers', JSON.stringify(this.customers));
+            window.robustStorage.setItem('nutritionCustomers', JSON.stringify(this.customers));
         } catch (e) {
             console.error('Failed to save customers:', e);
         }
@@ -203,7 +256,7 @@ class CustomerManager {
 
     saveAttendance() {
         try {
-            localStorage.setItem('nutritionAttendance', JSON.stringify(this.attendance));
+            window.robustStorage.setItem('nutritionAttendance', JSON.stringify(this.attendance));
         } catch (e) {
             console.error('Failed to save attendance:', e);
         }
@@ -223,7 +276,7 @@ class CustomerManager {
 
     saveEMI() {
         try {
-            localStorage.setItem('nutritionEMI', JSON.stringify(this.emiPlans));
+            window.robustStorage.setItem('nutritionEMI', JSON.stringify(this.emiPlans));
         } catch (e) {
             console.error('Failed to save EMI data:', e);
         }
@@ -249,7 +302,7 @@ class CustomerManager {
 
     saveComposition() {
         try {
-            localStorage.setItem('nutritionComposition', JSON.stringify(this.composition));
+            window.robustStorage.setItem('nutritionComposition', JSON.stringify(this.composition));
             if (window.cloudSync) window.cloudSync.queueSync('nutritionComposition');
         } catch (e) {
             console.error('Failed to save composition:', e);

@@ -1,18 +1,73 @@
 // ============================================================
 // Inventory Management System
 // ============================================================
+// ============================================================
+// Shared Utilities Fallback
+// ============================================================
+const escapeHtml = window.escapeHtml || function(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+};
+window.escapeHtml = escapeHtml;
+
 class InventoryManager {
     constructor() {
+        window.inventoryManager = this;
         // Product Database - All your products organized by category
         this.products = this.initializeProducts();
-        this.stockData = this.loadStockData();
-        this.stockInHistory = this.loadStockInHistory();
-        this.stockOutHistory = this.loadStockOutHistory();
-        this.dailyUsage = this.loadDailyUsage();
+        
+        // Initial sync load from localStorage (fastest)
+        this.stockData = JSON.parse(localStorage.getItem('inventoryStock') || '{}');
+        this.stockInHistory = JSON.parse(localStorage.getItem('inventoryStockIn') || '[]');
+        this.stockOutHistory = JSON.parse(localStorage.getItem('inventoryStockOut') || '[]');
+        this.dailyUsage = JSON.parse(localStorage.getItem('inventoryDailyUsage') || '[]');
+        
         this.editingUsageId = null;
         this.editingStockInId = null;
         this.editingStockOutId = null;
         this.init();
+        
+        // Deep Load in background
+        this.deepLoadData();
+    }
+
+    async deepLoadData() {
+        try {
+            const keys = ['inventoryStock', 'inventoryStockIn', 'inventoryStockOut', 'inventoryDailyUsage'];
+            let changed = false;
+
+            for (const key of keys) {
+                const deepStored = await window.robustStorage.getItem(key);
+                if (deepStored) {
+                    const deepData = JSON.parse(deepStored);
+                    const localData = localStorage.getItem(key);
+                    if (deepStored !== localData) {
+                        this[this.getPropForKey(key)] = deepData;
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed) {
+                console.log('InventoryManager: Deep data refresh triggered');
+                this.renderStockList();
+                this.renderStockInHistory();
+                this.renderStockOutHistory();
+                this.renderDailyUsageList();
+            }
+        } catch (e) {
+            console.error('InventoryManager: Deep load failed', e);
+        }
+    }
+
+    getPropForKey(key) {
+        if (key === 'inventoryStock') return 'stockData';
+        if (key === 'inventoryStockIn') return 'stockInHistory';
+        if (key === 'inventoryStockOut') return 'stockOutHistory';
+        if (key === 'inventoryDailyUsage') return 'dailyUsage';
+        return '';
     }
 
     // ---- Product Database ----
@@ -829,20 +884,8 @@ class InventoryManager {
 
     saveStockData() {
         try {
-            // Save to primary location
-            localStorage.setItem('inventoryStock', JSON.stringify(this.stockData));
-            
-            // Create automatic backup with timestamp
-            const backupKey = 'inventoryStock_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.stockData));
-            
-            // Keep only last 7 days of backups
-            cleanupOldBackups('inventoryStock_backup_', 3);
-            
-            // Also save to secondary key
-            localStorage.setItem('inventoryStock_secondary', JSON.stringify(this.stockData));
-            
-            console.log('✅ Stock Data saved with backups:', Object.keys(this.stockData).length, 'products');
+            window.robustStorage.setItem('inventoryStock', JSON.stringify(this.stockData));
+            console.log('✅ Stock Data saved with Triple Redundancy:', Object.keys(this.stockData).length, 'products');
         } catch (e) {
             console.error('❌ CRITICAL: Failed to save stock data!', e);
             alert('ERROR: Could not save stock data! Please check browser storage settings or export immediately.');
@@ -888,20 +931,8 @@ class InventoryManager {
 
     saveStockInHistory() {
         try {
-            // Save to primary location
-            localStorage.setItem('inventoryStockIn', JSON.stringify(this.stockInHistory));
-            
-            // Create automatic backup
-            const backupKey = 'inventoryStockIn_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.stockInHistory));
-            
-            // Keep only last 7 days
-            cleanupOldBackups('inventoryStockIn_backup_', 3);
-            
-            // Secondary backup
-            localStorage.setItem('inventoryStockIn_secondary', JSON.stringify(this.stockInHistory));
-            
-            console.log('✅ Stock In History saved with backups:', this.stockInHistory.length, 'entries');
+            window.robustStorage.setItem('inventoryStockIn', JSON.stringify(this.stockInHistory));
+            console.log('✅ Stock In History saved with Triple Redundancy:', this.stockInHistory.length, 'entries');
         } catch (e) {
             console.error('❌ CRITICAL: Failed to save stock in history!', e);
             alert('ERROR: Could not save stock in history! Please check browser storage settings.');
@@ -947,20 +978,8 @@ class InventoryManager {
 
     saveStockOutHistory() {
         try {
-            // Save to primary location
-            localStorage.setItem('inventoryStockOut', JSON.stringify(this.stockOutHistory));
-            
-            // Create automatic backup
-            const backupKey = 'inventoryStockOut_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.stockOutHistory));
-            
-            // Keep only last 7 days
-            cleanupOldBackups('inventoryStockOut_backup_', 3);
-            
-            // Secondary backup
-            localStorage.setItem('inventoryStockOut_secondary', JSON.stringify(this.stockOutHistory));
-            
-            console.log('✅ Stock Out History saved with backups:', this.stockOutHistory.length, 'entries');
+            window.robustStorage.setItem('inventoryStockOut', JSON.stringify(this.stockOutHistory));
+            console.log('✅ Stock Out History saved with Triple Redundancy:', this.stockOutHistory.length, 'entries');
         } catch (e) {
             console.error('❌ CRITICAL: Failed to save stock out history!', e);
             alert('ERROR: Could not save stock out history! Please check browser storage settings.');
@@ -1006,20 +1025,8 @@ class InventoryManager {
 
     saveDailyUsage() {
         try {
-            // Save to primary location
-            localStorage.setItem('inventoryDailyUsage', JSON.stringify(this.dailyUsage));
-            
-            // Create automatic backup
-            const backupKey = 'inventoryDailyUsage_backup_' + new Date().toISOString().split('T')[0];
-            localStorage.setItem(backupKey, JSON.stringify(this.dailyUsage));
-            
-            // Keep only last 7 days
-            cleanupOldBackups('inventoryDailyUsage_backup_', 3);
-            
-            // Secondary backup
-            localStorage.setItem('inventoryDailyUsage_secondary', JSON.stringify(this.dailyUsage));
-            
-            console.log('✅ Daily Usage saved with backups:', this.dailyUsage.length, 'entries');
+            window.robustStorage.setItem('inventoryDailyUsage', JSON.stringify(this.dailyUsage));
+            console.log('✅ Daily Usage saved with Triple Redundancy:', this.dailyUsage.length, 'entries');
         } catch (e) {
             console.error('❌ CRITICAL: Failed to save daily usage!', e);
             alert('ERROR: Could not save daily usage! Please check browser storage settings.');
