@@ -18,11 +18,11 @@ class InventoryManager {
         // Product Database - All your products organized by category
         this.products = this.initializeProducts();
         
-        // Initial sync load from localStorage (fastest)
-        this.stockData = JSON.parse(localStorage.getItem('inventoryStock') || '{}');
-        this.stockInHistory = JSON.parse(localStorage.getItem('inventoryStockIn') || '[]');
-        this.stockOutHistory = JSON.parse(localStorage.getItem('inventoryStockOut') || '[]');
-        this.dailyUsage = JSON.parse(localStorage.getItem('inventoryDailyUsage') || '[]');
+        // Initial sync load with robust fallback
+        this.stockData = this.loadStockDataSync();
+        this.stockInHistory = this.loadStockInHistorySync();
+        this.stockOutHistory = this.loadStockOutHistorySync();
+        this.dailyUsage = this.loadDailyUsageSync();
         
         this.editingUsageId = null;
         this.editingStockInId = null;
@@ -31,6 +31,83 @@ class InventoryManager {
         
         // Deep Load in background
         this.deepLoadData();
+    }
+
+    loadStockDataSync() {
+        const keys = ['inventoryStock', '__backup_inventoryStock', 'inventoryStock_secondary'];
+        for (const key of keys) {
+            const stored = localStorage.getItem(key);
+            if (stored && stored !== '{}' && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    if (Object.keys(data).length > 0) {
+                        console.log(`✅ Stock Data loaded from ${key}: ${Object.keys(data).length} products`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return this.initializeEmptyStock();
+    }
+
+    loadStockInHistorySync() {
+        const keys = ['inventoryStockIn', '__backup_inventoryStockIn', 'inventoryStockIn_secondary'];
+        const allKeys = Object.keys(localStorage);
+        const backupKeys = allKeys.filter(k => k.startsWith('inventoryStockIn_backup_')).sort().reverse();
+        const allSources = [...keys, ...backupKeys];
+        for (const key of allSources) {
+            const stored = localStorage.getItem(key);
+            if (stored && stored !== '[]' && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    if (Array.isArray(data) && data.length > 0) {
+                        console.log(`✅ Stock In History loaded from ${key}: ${data.length} entries`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return [];
+    }
+
+    loadStockOutHistorySync() {
+        const keys = ['inventoryStockOut', '__backup_inventoryStockOut', 'inventoryStockOut_secondary'];
+        const allKeys = Object.keys(localStorage);
+        const backupKeys = allKeys.filter(k => k.startsWith('inventoryStockOut_backup_')).sort().reverse();
+        const allSources = [...keys, ...backupKeys];
+        for (const key of allSources) {
+            const stored = localStorage.getItem(key);
+            if (stored && stored !== '[]' && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    if (Array.isArray(data) && data.length > 0) {
+                        console.log(`✅ Stock Out History loaded from ${key}: ${data.length} entries`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return [];
+    }
+
+    loadDailyUsageSync() {
+        const keys = ['inventoryDailyUsage', '__backup_inventoryDailyUsage', 'inventoryDailyUsage_secondary'];
+        const allKeys = Object.keys(localStorage);
+        const backupKeys = allKeys.filter(k => k.startsWith('inventoryDailyUsage_backup_')).sort().reverse();
+        const allSources = [...keys, ...backupKeys];
+        for (const key of allSources) {
+            const stored = localStorage.getItem(key);
+            if (stored && stored !== '[]' && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    if (Array.isArray(data) && data.length > 0) {
+                        console.log(`✅ Daily Usage loaded from ${key}: ${data.length} entries`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return [];
     }
 
     async deepLoadData() {

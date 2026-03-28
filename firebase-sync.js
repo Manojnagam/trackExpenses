@@ -83,10 +83,33 @@ class CloudSync {
 
                     const cloudTs = cloudData.updatedAt ? cloudData.updatedAt.toMillis() : 0;
                     const localTs = parseInt(localStorage.getItem('cloudSync_ts_' + localKey) || '0');
+                    const localModifiedTs = parseInt(localStorage.getItem('localLastModified_' + localKey) || '0');
 
                     if (cloudTs > localTs) {
                         console.log(`[CloudSync] Real-time update detected for ${localKey}`);
-                        localStorage.setItem(localKey, JSON.stringify(cloudData.data));
+                        
+                        const localDataRaw = localStorage.getItem(localKey);
+                        let localData = null;
+                        try { localData = JSON.parse(localDataRaw); } catch(e) {}
+
+                        // NEVER overwrite with empty cloud data if local has data
+                        const isCloudEmpty = !cloudData.data || (Array.isArray(cloudData.data) && cloudData.data.length === 0);
+                        const hasLocalData = localData && (Array.isArray(localData) ? localData.length > 0 : Object.keys(localData).length > 0);
+
+                        if (isCloudEmpty && hasLocalData) {
+                            console.warn(`[CloudSync] Blocked overwrite of ${localKey} with empty cloud data.`);
+                            return;
+                        }
+
+                        // Use Smart Merge if local has recent changes, otherwise take cloud data
+                        if (localModifiedTs > localTs && hasLocalData) {
+                            console.log(`[CloudSync] Merging local changes into real-time update for ${localKey}`);
+                            const merged = this.smartMerge(localData, cloudData.data);
+                            localStorage.setItem(localKey, JSON.stringify(merged));
+                        } else {
+                            localStorage.setItem(localKey, JSON.stringify(cloudData.data));
+                        }
+                        
                         localStorage.setItem('cloudSync_ts_' + localKey, cloudTs.toString());
                         changed = true;
                     }
@@ -108,10 +131,12 @@ class CloudSync {
         this.user = user;
         this.updateAuthUI();
         if (user) {
-            this.hookSaveMethods();
-            setTimeout(() => {
-                this.pullFromCloud();
+            // First Pull, then Hook to prevent empty local data from overwriting cloud
+            setTimeout(async () => {
+                await this.pullFromCloud();
                 this.setupRealtimeListener();
+                this.hookSaveMethods();
+                console.log('[CloudSync] System Ready: Pulled and Hooked.');
             }, 1000);
         } else {
             this.unhookSaveMethods();

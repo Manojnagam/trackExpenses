@@ -50,13 +50,18 @@ class RobustStorage {
     async getItem(key) {
         // Try Primary
         let val = localStorage.getItem(key);
-        if (val) return val;
+        const isEmpty = !val || val === '[]' || val === '{}' || val === 'null';
+        
+        if (!isEmpty) return val;
 
-        // Try Secondary Backup
-        val = localStorage.getItem('__backup_' + key);
-        if (val) {
-            localStorage.setItem(key, val); // Restore primary
-            return val;
+        // If Primary is empty, try Secondary Backup
+        let backupVal = localStorage.getItem('__backup_' + key);
+        const isBackupEmpty = !backupVal || backupVal === '[]' || backupVal === '{}' || backupVal === 'null';
+        
+        if (!isBackupEmpty) {
+            console.log(`[RobustStorage] Restoring ${key} from Secondary Backup`);
+            localStorage.setItem(key, backupVal);
+            return backupVal;
         }
 
         // Try Tertiary (IndexedDB)
@@ -66,15 +71,20 @@ class RobustStorage {
                 const tx = this.db.transaction(this.storeName, 'readonly');
                 const req = tx.objectStore(this.storeName).get(key);
                 req.onsuccess = () => {
-                    if (req.result) {
-                        localStorage.setItem(key, req.result); // Restore primary
-                        resolve(req.result);
-                    } else resolve(null);
+                    const idbVal = req.result;
+                    const isIdbEmpty = !idbVal || idbVal === '[]' || idbVal === '{}' || idbVal === 'null';
+                    if (!isIdbEmpty) {
+                        console.log(`[RobustStorage] Restoring ${key} from IndexedDB`);
+                        localStorage.setItem(key, idbVal);
+                        resolve(idbVal);
+                    } else {
+                        resolve(val); // Return the original empty val if no non-empty backup found
+                    }
                 };
-                req.onerror = () => resolve(null);
+                req.onerror = () => resolve(val);
             });
         }
-        return null;
+        return val;
     }
 
     triggerAutoBackup(key, value) {
@@ -149,9 +159,9 @@ function checkStorageUsage() {
 class ExpenseTracker {
     constructor() {
         window.tracker = this;
-        // Initial sync load from localStorage (fastest)
-        const stored = localStorage.getItem('nutritionExpenses');
-        this.expenses = stored ? JSON.parse(stored) : [];
+        
+        // Initial sync load with deep fallback (Synchronous version)
+        this.expenses = this.loadExpensesSync();
         
         this.editingId = null;
         this.weeklyChart = null;
@@ -166,6 +176,29 @@ class ExpenseTracker {
         // Background deep-load from Robust Storage (IndexedDB)
         this.deepLoadData();
         this.processRecurringExpenses();
+    }
+
+    // Synchronous load with fallback for initial fast start
+    loadExpensesSync() {
+        const keys = ['nutritionExpenses', '__backup_nutritionExpenses', 'nutritionExpenses_secondary'];
+        const allKeys = Object.keys(localStorage);
+        const backupKeys = allKeys.filter(k => k.startsWith('nutritionExpenses_backup_')).sort().reverse();
+        
+        const allSources = [...keys, ...backupKeys];
+        
+        for (const key of allSources) {
+            const stored = localStorage.getItem(key);
+            if (stored && stored !== '[]' && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    if (Array.isArray(data) && data.length > 0) {
+                        console.log(`✅ Finance data loaded from ${key}: ${data.length} entries`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return [];
     }
 
     async deepLoadData() {
@@ -224,6 +257,7 @@ class ExpenseTracker {
         document.getElementById('closeSettings').addEventListener('click', () => this.closeSettings());
         document.getElementById('backupBtn').addEventListener('click', () => this.backupData());
         document.getElementById('diagBtn')?.addEventListener('click', () => this.showStorageDiagnostics());
+        document.getElementById('emergencyRestoreBtn')?.addEventListener('click', () => this.emergencyRestoreAllData());
         document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
         document.getElementById('restoreFile').addEventListener('change', (e) => this.restoreData(e));
         document.getElementById('clearDataBtn').addEventListener('click', () => this.clearAllData());
@@ -340,8 +374,12 @@ class ExpenseTracker {
             { key: 'nutritionAttendance', name: 'Attendance (Daily)' },
             { key: 'nutritionComposition', name: 'Composition (Body Stats)' },
             { key: 'nutritionEMI', name: 'EMI Plans' },
-            { key: 'inventoryStock', name: 'Inventory (Stock)' },
-            { key: 'inventoryDailyUsage', name: 'Inventory (Usage)' }
+            { key: 'nutritionCoaches', name: 'Coaches' },
+            { key: 'nutritionRecurring', name: 'Recurring Expenses' },
+            { key: 'inventoryStock', name: 'Inventory (Current Stock)' },
+            { key: 'inventoryStockIn', name: 'Inventory (Stock In History)' },
+            { key: 'inventoryStockOut', name: 'Inventory (Stock Out History)' },
+            { key: 'inventoryDailyUsage', name: 'Inventory (Daily Usage)' }
         ];
 
         let diagHtml = '<div style="text-align:left; font-family:monospace; font-size:0.75rem; max-height:400px; overflow-y:auto; background:#f8f9fa; padding:10px; border:1px solid #ddd; border-radius:5px;">';
@@ -352,9 +390,9 @@ class ExpenseTracker {
             const backups = Object.keys(localStorage).filter(key => key.startsWith(k.key + '_backup_')).length;
             const robust = localStorage.getItem('__backup_' + k.key);
 
-            let pLen = 0; try { if(primary) pLen = Array.isArray(JSON.parse(primary)) ? JSON.parse(primary).length : Object.keys(JSON.parse(primary)).length; } catch(e){}
-            let sLen = 0; try { if(secondary) sLen = Array.isArray(JSON.parse(secondary)) ? JSON.parse(secondary).length : Object.keys(JSON.parse(secondary)).length; } catch(e){}
-            let rLen = 0; try { if(robust) rLen = Array.isArray(JSON.parse(robust)) ? JSON.parse(robust).length : Object.keys(JSON.parse(robust)).length; } catch(e){}
+            let pLen = 0; try { if(primary) { const d = JSON.parse(primary); pLen = Array.isArray(d) ? d.length : Object.keys(d).length; } } catch(e){}
+            let sLen = 0; try { if(secondary) { const d = JSON.parse(secondary); sLen = Array.isArray(d) ? d.length : Object.keys(d).length; } } catch(e){}
+            let rLen = 0; try { if(robust) { const d = JSON.parse(robust); rLen = Array.isArray(d) ? d.length : Object.keys(d).length; } } catch(e){}
 
             diagHtml += `<div style="margin-bottom:12px; border-bottom:1px solid #eee; padding-bottom:5px;">
                 <strong style="color:var(--primary-color)">${k.name}</strong><br>
@@ -372,7 +410,7 @@ class ExpenseTracker {
         diagDiv.innerHTML = `
             <div style="background:white; padding:20px; border-radius:12px; max-width:500px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
                 <h3 style="margin-top:0">🔍 Storage Diagnostics</h3>
-                <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">Your device says it HAS the data (Primary: 32/168 items). Use the Repair button to force it to show up.</p>
+                <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">We've identified all available backup slots. Use the Repair button to merge them into your primary view.</p>
                 ${diagHtml}
                 <div style="margin-top:20px; display:grid; grid-template-columns:1fr; gap:10px;">
                     <button class="btn btn-primary" style="background:#22c55e; font-weight:bold; padding:15px;" onclick="tracker.forceRepairAndMergeAll()">🛠️ FORCE REPAIR & MERGE ALL DATA</button>
@@ -389,7 +427,8 @@ class ExpenseTracker {
         const keys = [
             'nutritionExpenses', 'nutritionCustomers', 'nutritionAttendance', 
             'nutritionComposition', 'nutritionEMI', 'nutritionRecurring',
-            'inventoryStock', 'inventoryDailyUsage'
+            'nutritionCoaches',
+            'inventoryStock', 'inventoryStockIn', 'inventoryStockOut', 'inventoryDailyUsage'
         ];
         
         const allKeys = Object.keys(localStorage);
@@ -397,7 +436,6 @@ class ExpenseTracker {
 
         keys.forEach(key => {
             let combinedData = [];
-            const isArray = key !== 'nutritionComposition' && key !== 'inventoryStock';
             
             // Gather from all sources
             const sources = [
@@ -407,7 +445,19 @@ class ExpenseTracker {
                 ...allKeys.filter(k => k.startsWith(key + '_backup_')).map(k => localStorage.getItem(k))
             ];
 
-            if (isArray) {
+            // Determine if it's an array or object based on first valid source
+            let isArrayType = true;
+            for (const s of sources) {
+                try {
+                    if (s) {
+                        const d = JSON.parse(s);
+                        isArrayType = Array.isArray(d);
+                        break;
+                    }
+                } catch(e) {}
+            }
+
+            if (isArrayType) {
                 const mergedMap = new Map();
                 sources.forEach(s => {
                     try {
@@ -436,7 +486,9 @@ class ExpenseTracker {
                     try {
                         if (s) {
                             const data = JSON.parse(s);
-                            mergedObj = { ...mergedObj, ...data };
+                            if (data && typeof data === 'object' && !Array.isArray(data)) {
+                                mergedObj = { ...mergedObj, ...data };
+                            }
                         }
                     } catch(e){}
                 });

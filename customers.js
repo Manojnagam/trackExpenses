@@ -16,11 +16,12 @@ window.escapeHtml = escapeHtml;
 class CustomerManager {
     constructor() {
         window.customerManager = this;
-        // Initial sync load from localStorage (fastest)
-        this.customers = JSON.parse(localStorage.getItem('nutritionCustomers') || '[]');
-        this.attendance = JSON.parse(localStorage.getItem('nutritionAttendance') || '[]');
-        this.emiPlans = JSON.parse(localStorage.getItem('nutritionEMI') || '[]');
-        this.composition = JSON.parse(localStorage.getItem('nutritionComposition') || '{}');
+        
+        // Initial sync load with robust fallback
+        this.customers = this.loadDataSync('nutritionCustomers');
+        this.attendance = this.loadDataSync('nutritionAttendance');
+        this.emiPlans = this.loadDataSync('nutritionEMI');
+        this.composition = this.loadDataSync('nutritionComposition', true); // isObject = true
 
         this.editingCustomerId = null;
         this.editingEMIId = null;
@@ -29,6 +30,28 @@ class CustomerManager {
         
         // Deep Load in background
         this.deepLoadData();
+    }
+
+    loadDataSync(key, isObject = false) {
+        const keys = [key, '__backup_' + key, key + '_secondary'];
+        const allKeys = Object.keys(localStorage);
+        const backupKeys = allKeys.filter(k => k.startsWith(key + '_backup_')).sort().reverse();
+        const allSources = [...keys, ...backupKeys];
+        
+        for (const s of allSources) {
+            const stored = localStorage.getItem(s);
+            if (stored && stored !== (isObject ? '{}' : '[]') && stored !== 'null') {
+                try {
+                    const data = JSON.parse(stored);
+                    const hasData = isObject ? Object.keys(data).length > 0 : (Array.isArray(data) && data.length > 0);
+                    if (hasData) {
+                        console.log(`✅ ${key} loaded from ${s}: ${isObject ? Object.keys(data).length + ' keys' : data.length + ' items'}`);
+                        return data;
+                    }
+                } catch(e) {}
+            }
+        }
+        return isObject ? {} : [];
     }
 
     async deepLoadData() {
